@@ -1,0 +1,765 @@
+[
+  {
+    "name": "valid-DocHandle",
+    "schema": "DocHandle",
+    "valid": true,
+    "value": {
+      "docId": "11111111-1111-4111-8111-111111111111",
+      "docHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fileName": "example.pdf",
+      "kind": "pdf",
+      "byteLength": 123,
+      "access": "edit",
+      "contentRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "valid-PageInfo",
+    "schema": "PageInfo",
+    "valid": true,
+    "value": {
+      "page": 1,
+      "pageBox": [
+        0,
+        0,
+        100,
+        100
+      ],
+      "rotate": 90,
+      "userUnit": 2,
+      "width": 100,
+      "height": 100
+    }
+  },
+  {
+    "name": "valid-PageText",
+    "schema": "PageText",
+    "valid": true,
+    "value": {
+      "page": 1,
+      "pageBox": [
+        0,
+        0,
+        100,
+        100
+      ],
+      "userUnit": 1,
+      "textRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source": "native",
+      "text": "😀",
+      "glyphs": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "😀",
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "baseline": [
+            0,
+            0,
+            10,
+            0
+          ],
+          "source": "native"
+        }
+      ],
+      "spans": [
+        {
+          "range": {
+            "start": 0,
+            "end": 2
+          },
+          "glyphIds": [
+            "11111111-1111-4111-8111-111111111111"
+          ],
+          "kind": "glyph",
+          "lineId": "11111111-1111-4111-8111-111111111111"
+        }
+      ],
+      "lines": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "range": {
+            "start": 0,
+            "end": 2
+          },
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "direction": "ltr",
+          "glyphIds": [
+            "11111111-1111-4111-8111-111111111111"
+          ]
+        }
+      ],
+      "quality": "verified",
+      "profileFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "valid-Annotation",
+    "schema": "Annotation",
+    "valid": true,
+    "value": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "docHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "page": 1,
+      "type": "note",
+      "rect": [
+        0,
+        0,
+        10,
+        10
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "color": "#3B82F6",
+      "opacity": 0.5,
+      "author": "作者",
+      "createdAt": "2026-11-25T00:00:00Z",
+      "modifiedAt": "2026-11-25T00:00:00Z",
+      "revision": 1,
+      "migrationState": "none"
+    }
+  },
+  {
+    "name": "valid-Message",
+    "schema": "Message",
+    "valid": true,
+    "value": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "conversationId": "11111111-1111-4111-8111-111111111111",
+      "parentId": null,
+      "branchId": "11111111-1111-4111-8111-111111111111",
+      "role": "assistant",
+      "createdAt": "2026-11-25T00:00:00Z",
+      "state": "completed",
+      "sequence": 0,
+      "content": [
+        {
+          "type": "text",
+          "text": "😀 hello"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid-Provider",
+    "schema": "Provider",
+    "valid": true,
+    "value": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "fixture",
+      "api": "openai-completions",
+      "baseUrl": "https://example.com/v1",
+      "isDefault": false,
+      "imageAllowed": false,
+      "models": [
+        {
+          "modelId": "test",
+          "input": [
+            "text"
+          ],
+          "contextWindow": 4096,
+          "maxOutputTokens": 256
+        }
+      ],
+      "hasKey": false
+    }
+  },
+  {
+    "name": "valid-Job",
+    "schema": "Job",
+    "valid": true,
+    "value": {
+      "jobId": "11111111-1111-4111-8111-111111111111",
+      "docId": "11111111-1111-4111-8111-111111111111",
+      "page": 1,
+      "contentRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "textRevision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pageGeneration": 2,
+      "phase": "running"
+    }
+  },
+  {
+    "name": "valid-Command",
+    "schema": "Command",
+    "valid": true,
+    "value": {
+      "type": "batch",
+      "mutations": [
+        {
+          "type": "conversation.put",
+          "value": {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "title": "test",
+            "modelRef": "fixture",
+            "createdAt": "2026-11-25T00:00:00Z"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid-CommitResult",
+    "schema": "CommitResult",
+    "valid": true,
+    "value": {
+      "operationId": "11111111-1111-4111-8111-111111111111",
+      "committedRevision": 1,
+      "payloadHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "valid-Request",
+    "schema": "Request",
+    "valid": true,
+    "value": {
+      "v": 1,
+      "kind": "req",
+      "id": "11111111-1111-4111-8111-111111111111",
+      "method": "app.bootstrap",
+      "params": {}
+    }
+  },
+  {
+    "name": "valid-Response",
+    "schema": "Response",
+    "valid": true,
+    "value": {
+      "v": 1,
+      "kind": "res",
+      "id": "11111111-1111-4111-8111-111111111111",
+      "ok": false,
+      "error": {
+        "code": "FORBIDDEN",
+        "message": "拒绝",
+        "retryable": false
+      }
+    }
+  },
+  {
+    "name": "valid-Box",
+    "schema": "Box",
+    "valid": true,
+    "value": [
+      0,
+      0,
+      100,
+      100
+    ]
+  },
+  {
+    "name": "valid-Quad",
+    "schema": "Quad",
+    "valid": true,
+    "value": [
+      0,
+      0,
+      10,
+      0,
+      10,
+      10,
+      0,
+      10
+    ]
+  },
+  {
+    "name": "valid-Affine",
+    "schema": "Affine",
+    "valid": true,
+    "value": [
+      2,
+      0,
+      0,
+      3,
+      7,
+      11
+    ]
+  },
+  {
+    "name": "valid-TextRange",
+    "schema": "TextRange",
+    "valid": true,
+    "value": {
+      "start": 0,
+      "end": 2
+    }
+  },
+  {
+    "name": "valid-CommitCommand",
+    "schema": "CommitCommand",
+    "valid": true,
+    "value": {
+      "schemaVersion": 1,
+      "operationId": "11111111-1111-4111-8111-111111111111",
+      "docId": "11111111-1111-4111-8111-111111111111",
+      "expectedRevision": 0,
+      "payloadHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "command": {
+        "type": "batch",
+        "mutations": [
+          {
+            "type": "conversation.put",
+            "value": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "title": "test",
+              "modelRef": "fixture",
+              "createdAt": "2026-11-25T00:00:00Z"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "unknown-version",
+    "schema": "Request",
+    "valid": false,
+    "value": {
+      "v": 2,
+      "kind": "req",
+      "id": "11111111-1111-4111-8111-111111111111",
+      "method": "app.bootstrap",
+      "params": {}
+    }
+  },
+  {
+    "name": "unknown-field",
+    "schema": "Request",
+    "valid": false,
+    "value": {
+      "v": 1,
+      "kind": "req",
+      "id": "11111111-1111-4111-8111-111111111111",
+      "method": "app.bootstrap",
+      "params": {},
+      "secret": "x"
+    }
+  },
+  {
+    "name": "path-id",
+    "schema": "DocHandle",
+    "valid": false,
+    "value": {
+      "docId": "../private",
+      "docHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fileName": "example.pdf",
+      "kind": "pdf",
+      "byteLength": 123,
+      "access": "edit",
+      "contentRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "content-identity",
+    "schema": "DocHandle",
+    "valid": false,
+    "value": {
+      "docId": "11111111-1111-4111-8111-111111111111",
+      "docHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fileName": "example.pdf",
+      "kind": "pdf",
+      "byteLength": 123,
+      "access": "edit",
+      "contentRevision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  {
+    "name": "page-zero",
+    "schema": "PageInfo",
+    "valid": false,
+    "value": {
+      "page": 0,
+      "pageBox": [
+        0,
+        0,
+        100,
+        100
+      ],
+      "rotate": 90,
+      "userUnit": 2,
+      "width": 100,
+      "height": 100
+    }
+  },
+  {
+    "name": "page-limit",
+    "schema": "PageInfo",
+    "valid": false,
+    "value": {
+      "page": 1000001,
+      "pageBox": [
+        0,
+        0,
+        100,
+        100
+      ],
+      "rotate": 90,
+      "userUnit": 2,
+      "width": 100,
+      "height": 100
+    }
+  },
+  {
+    "name": "coordinate-overflow",
+    "schema": "PageInfo",
+    "valid": false,
+    "value": {
+      "page": 1,
+      "pageBox": [
+        0,
+        0,
+        1e+300,
+        100
+      ],
+      "rotate": 90,
+      "userUnit": 2,
+      "width": 100,
+      "height": 100
+    }
+  },
+  {
+    "name": "long-author",
+    "schema": "Annotation",
+    "valid": false,
+    "value": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "docHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "page": 1,
+      "type": "note",
+      "rect": [
+        0,
+        0,
+        10,
+        10
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "color": "#3B82F6",
+      "opacity": 0.5,
+      "author": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "createdAt": "2026-11-25T00:00:00Z",
+      "modifiedAt": "2026-11-25T00:00:00Z",
+      "revision": 1,
+      "migrationState": "none"
+    }
+  },
+  {
+    "name": "missing-anchor",
+    "schema": "Annotation",
+    "valid": false,
+    "value": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "docHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "page": 1,
+      "type": "note",
+      "rect": [
+        0,
+        0,
+        10,
+        10
+      ],
+      "color": "#3B82F6",
+      "opacity": 0.5,
+      "author": "作者",
+      "createdAt": "2026-11-25T00:00:00Z",
+      "modifiedAt": "2026-11-25T00:00:00Z",
+      "revision": 1,
+      "migrationState": "none"
+    }
+  },
+  {
+    "name": "utf16-surrogate-split",
+    "schema": "PageText",
+    "valid": false,
+    "value": {
+      "page": 1,
+      "pageBox": [
+        0,
+        0,
+        100,
+        100
+      ],
+      "userUnit": 1,
+      "textRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source": "native",
+      "text": "😀",
+      "glyphs": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "😀",
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "baseline": [
+            0,
+            0,
+            10,
+            0
+          ],
+          "source": "native"
+        }
+      ],
+      "spans": [
+        {
+          "range": {
+            "start": 0,
+            "end": 1
+          },
+          "glyphIds": [
+            "11111111-1111-4111-8111-111111111111"
+          ],
+          "kind": "glyph",
+          "lineId": "11111111-1111-4111-8111-111111111111"
+        }
+      ],
+      "lines": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "range": {
+            "start": 0,
+            "end": 2
+          },
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "direction": "ltr",
+          "glyphIds": [
+            "11111111-1111-4111-8111-111111111111"
+          ]
+        }
+      ],
+      "quality": "verified",
+      "profileFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "utf16-out-of-bounds",
+    "schema": "PageText",
+    "valid": false,
+    "value": {
+      "page": 1,
+      "pageBox": [
+        0,
+        0,
+        100,
+        100
+      ],
+      "userUnit": 1,
+      "textRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source": "native",
+      "text": "😀",
+      "glyphs": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "😀",
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "baseline": [
+            0,
+            0,
+            10,
+            0
+          ],
+          "source": "native"
+        }
+      ],
+      "spans": [
+        {
+          "range": {
+            "start": 0,
+            "end": 3
+          },
+          "glyphIds": [
+            "11111111-1111-4111-8111-111111111111"
+          ],
+          "kind": "glyph",
+          "lineId": "11111111-1111-4111-8111-111111111111"
+        }
+      ],
+      "lines": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "range": {
+            "start": 0,
+            "end": 2
+          },
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "direction": "ltr",
+          "glyphIds": [
+            "11111111-1111-4111-8111-111111111111"
+          ]
+        }
+      ],
+      "quality": "verified",
+      "profileFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "unsafe-url",
+    "schema": "Provider",
+    "valid": false,
+    "value": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "fixture",
+      "api": "openai-completions",
+      "baseUrl": "http://evil.example",
+      "isDefault": false,
+      "imageAllowed": false,
+      "models": [
+        {
+          "modelId": "test",
+          "input": [
+            "text"
+          ],
+          "contextWindow": 4096,
+          "maxOutputTokens": 256
+        }
+      ],
+      "hasKey": false
+    }
+  },
+  {
+    "name": "url-credentials",
+    "schema": "Provider",
+    "valid": false,
+    "value": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "fixture",
+      "api": "openai-completions",
+      "baseUrl": "https://user:pass@example.com",
+      "isDefault": false,
+      "imageAllowed": false,
+      "models": [
+        {
+          "modelId": "test",
+          "input": [
+            "text"
+          ],
+          "contextWindow": 4096,
+          "maxOutputTokens": 256
+        }
+      ],
+      "hasKey": false
+    }
+  },
+  {
+    "name": "crossed-quad",
+    "schema": "Quad",
+    "value": [
+      0,
+      0,
+      10,
+      10,
+      10,
+      0,
+      0,
+      10
+    ],
+    "valid": false
+  },
+  {
+    "name": "clockwise-quad",
+    "schema": "Quad",
+    "value": [
+      0,
+      0,
+      0,
+      10,
+      10,
+      10,
+      10,
+      0
+    ],
+    "valid": false
+  },
+  {
+    "name": "wrong-start",
+    "schema": "Quad",
+    "value": [
+      10,
+      0,
+      10,
+      10,
+      0,
+      10,
+      0,
+      0
+    ],
+    "valid": false
+  },
+  {
+    "name": "degenerate-box",
+    "schema": "Box",
+    "value": [
+      0,
+      0,
+      0,
+      10
+    ],
+    "valid": false
+  },
+  {
+    "name": "singular-affine",
+    "schema": "Affine",
+    "value": [
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    "valid": false
+  }
+]

@@ -1,0 +1,34 @@
+# DocAss
+
+WPF/WebView2 桌面文档助手。第一阶段 A1–A15 的宿主、协议、存储和前端服务基础已完成自动化验收。默认打开空工作区；本地 PDF/图片阅读、OCR、真实模型调用属于后续阶段，当前版本尚未接入。
+
+需要 Windows x64、.NET SDK **11.0.100**、Node **24.22.1**、pnpm **12.15.0**。运行桌面程序需要 Microsoft Edge WebView2 Evergreen Runtime。根目录是唯一 pnpm 安装入口。
+
+```powershell
+pnpm install --frozen-lockfile
+dotnet restore DocAss.sln --locked-mode
+pnpm dev                 # 浏览器模式，http://localhost:5173
+pnpm dev:host            # 另一个终端；Debug 宿主连接同一个 Vite
+pnpm build              # src/web/dist
+pnpm build:host         # src/host/DocAss.Host/bin/Release/net11.0-windows/win-x64
+pnpm fixtures:setup     # 下载并校验锁定字体、qpdf 和人工标注样本；仅首次需要网络
+pnpm fixtures           # docs/fixtures/generated，测试前生成
+pnpm test:fixtures      # 重复生成对比 SHA-256；PDF.js 验证密码与样本内容
+pnpm test               # Vitest + xUnit，artifacts/ 下的 JSON/TRX
+pnpm test:browser       # 已安装 Edge，Playwright 启动 Vite；artifacts/browser-tests.json
+pnpm verify:desktop     # 真实 WPF/WebView2 验收；会短暂操作本应用窗口，结束恢复鼠标位置
+pnpm verify:install     # 空目录安装和锁定 NuGet restore
+pnpm run publish        # artifacts/publish/win-x64，自包含应用；manifest.json 校验清单
+```
+
+`pnpm run publish` 使用当前 PowerShell 进程的脚本执行策略，不修改系统执行策略。发布目录复制 `src/web/dist` 为 `wwwroot`；不从 `docs/spikes` 加载任何业务代码。Release 忽略 `--dev` 和外部 URL 参数，固定应用源 `https://app.docass.example/`。普通浏览器保留显式 `?demo=1` 的五个原型场景；页面底部按钮可以打开独立持久化的示例文档。
+
+桌面数据位于 `%LocalAppData%\DocAss\data\workspace.db`；最新一致性备份为 `workspace.db.backup`，附件在 `attachments`，文档写锁在 `locks`；WebView2 profile 在相邻的 `webview2`。不要直接复制正在写入的 SQLite 主文件作为备份。损坏数据库通过原生错误页提供明确恢复入口，恢复前显示备份时间和文档版本。数据库路径、原始凭据不会通过普通读取接口返回前端。
+
+协议源为 `src/shared/contracts.schema.json`，运行 `pnpm generate:contracts` 重建 TS/C# 类型、静态校验器与样例。浏览器运行时不动态编译 schema；CSP 只为 wasm 编译开放 `wasm-unsafe-eval`，不开放 JavaScript `unsafe-eval`。业务写入必须收到事务 ack 才能视为已保存；超时后用 operationId 查询或同 ID 重试。
+
+仓库保留源码、测试源码、脚本、文档和依赖锁文件。`node_modules`、`bin`、`obj`、`dist`、`artifacts`、历史 `docs/spikes`、截图、下载资源及生成样本均不纳入 Git。测试源码属于复现入口，不是生成的验证目录。首次检出需按上述顺序生成样本；原始证据可重新运行获得。
+
+`verify:desktop` 需要可交互的 Windows 桌面和空闲的 5173 端口，七个场景串行执行，测试数据隔离在 `artifacts/desktop/<时间>/`。显示器移除使用真实 `WM_DISPLAYCHANGE` 消息与越界窗口位置模拟；DPAPI 使用真实 Windows 匿名安全令牌验证身份隔离，覆盖范围见逐项记录。硬件热拔插和另一账户交互登录的整机检查保留到最终部署回归。
+
+实际验收与尚未覆盖项见 [第一阶段记录](docs/validation/phase1.md) 和 [任务清单](docs/tasks.md)。

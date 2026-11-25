@@ -1,0 +1,33 @@
+{
+  "name": "docass",
+  "private": true,
+  "version": "0.3.0",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "preview": "pnpm --filter web preview",
+    "dev:host": "dotnet run --project src/host/DocAss.Host -- --dev",
+    "build:host": "dotnet build DocAss.sln -c Release",
+    "test": "pnpm test:web && pnpm test:host",
+    "test:web": "pnpm --filter web test",
+    "test:host": "dotnet test src/host/DocAss.Host.Tests -c Release --logger trx --results-directory artifacts/test-results",
+    "test:browser": "playwright test",
+    "fixtures": "node docs/fixtures/generate.mjs",
+    "fixtures:setup": "node docs/fixtures/acquire-resources.mjs",
+    "test:fixtures": "node docs/fixtures/verify.mjs",
+    "verify:desktop": "node scripts/verify-desktop.mjs",
+    "publish": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish.ps1",
+    "generate:contracts": "node scripts/generate-types.mjs && node scripts/generate-csharp-types.mjs && node scripts/generate-validators.mjs && node scripts/create-contract-fixtures.mjs && node scripts/create-canonical-fixtures.mjs",
+    "verify:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-clean-install.ps1"
+  },
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=24.22.1 <25"
+  },
+  "devDependencies": {
+    "@pdf-lib/fontkit": "1.1.1",
+    "@playwright/test": "1.65.1",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.5.438"
+  }
+}

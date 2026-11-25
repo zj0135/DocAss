@@ -1,0 +1,1491 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://docass.example/contracts/v1",
+  "$defs": {
+    "Id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "Hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "Box": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": -1000000000,
+        "maximum": 1000000000
+      },
+      "maxItems": 4,
+      "minItems": 4
+    },
+    "Quad": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": -1000000000,
+        "maximum": 1000000000
+      },
+      "maxItems": 8,
+      "minItems": 8
+    },
+    "Affine": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": -1000000000,
+        "maximum": 1000000000
+      },
+      "maxItems": 6,
+      "minItems": 6
+    },
+    "Point": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": -1000000000,
+        "maximum": 1000000000
+      },
+      "maxItems": 2,
+      "minItems": 2
+    },
+    "TextRange": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "DocHandle": {
+      "type": "object",
+      "properties": {
+        "docId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "docHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "fileName": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[^/\\\\:]+$"
+        },
+        "kind": {
+          "enum": [
+            "pdf",
+            "image"
+          ]
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1073741824
+        },
+        "access": {
+          "enum": [
+            "edit",
+            "readOnly"
+          ]
+        },
+        "contentRevision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "docId",
+        "docHash",
+        "fileName",
+        "kind",
+        "byteLength",
+        "access",
+        "contentRevision"
+      ],
+      "additionalProperties": false
+    },
+    "PageInfo": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "pageBox": {
+          "$ref": "#/$defs/Box"
+        },
+        "rotate": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        },
+        "userUnit": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 75000
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000000
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000000
+        }
+      },
+      "required": [
+        "page",
+        "pageBox",
+        "rotate",
+        "userUnit",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "Glyph": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "quad": {
+          "$ref": "#/$defs/Quad"
+        },
+        "baseline": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -1000000000,
+            "maximum": 1000000000
+          },
+          "maxItems": 4,
+          "minItems": 4
+        },
+        "source": {
+          "enum": [
+            "native",
+            "ocr"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "quad",
+        "baseline",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "TextSpan": {
+      "type": "object",
+      "properties": {
+        "range": {
+          "$ref": "#/$defs/TextRange"
+        },
+        "glyphIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "maxItems": 10000,
+          "minItems": 0
+        },
+        "kind": {
+          "enum": [
+            "glyph",
+            "space",
+            "lineBreak"
+          ]
+        },
+        "lineId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "range",
+        "glyphIds",
+        "kind",
+        "lineId"
+      ],
+      "additionalProperties": false
+    },
+    "TextLine": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "range": {
+          "$ref": "#/$defs/TextRange"
+        },
+        "quad": {
+          "$ref": "#/$defs/Quad"
+        },
+        "direction": {
+          "enum": [
+            "ltr",
+            "rtl",
+            "ttb"
+          ]
+        },
+        "glyphIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "maxItems": 10000,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "range",
+        "quad",
+        "direction",
+        "glyphIds"
+      ],
+      "additionalProperties": false
+    },
+    "PageText": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "pageBox": {
+          "$ref": "#/$defs/Box"
+        },
+        "userUnit": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 75000
+        },
+        "textRevision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source": {
+          "enum": [
+            "native",
+            "ocr",
+            "hybrid"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1000000
+        },
+        "glyphs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Glyph"
+          },
+          "maxItems": 1000000,
+          "minItems": 0
+        },
+        "spans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TextSpan"
+          },
+          "maxItems": 1000000,
+          "minItems": 0
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TextLine"
+          },
+          "maxItems": 100000,
+          "minItems": 0
+        },
+        "quality": {
+          "enum": [
+            "verified",
+            "approximate",
+            "unavailable"
+          ]
+        },
+        "profileFingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "page",
+        "pageBox",
+        "userUnit",
+        "textRevision",
+        "source",
+        "text",
+        "glyphs",
+        "spans",
+        "lines",
+        "quality",
+        "profileFingerprint"
+      ],
+      "additionalProperties": false
+    },
+    "TextAnchor": {
+      "type": "object",
+      "properties": {
+        "quote": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "prefix": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "suffix": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TextRange"
+          },
+          "maxItems": 10000,
+          "minItems": 0
+        },
+        "textRevision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source": {
+          "enum": [
+            "native",
+            "ocr",
+            "hybrid"
+          ]
+        }
+      },
+      "required": [
+        "quote",
+        "prefix",
+        "suffix",
+        "ranges",
+        "textRevision",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "Annotation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "docHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "groupId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "type": {
+          "enum": [
+            "highlight",
+            "underline",
+            "note",
+            "freetext",
+            "ink",
+            "rect",
+            "arrow"
+          ]
+        },
+        "rect": {
+          "$ref": "#/$defs/Box"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "modifiedAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "contents": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "migrationState": {
+          "enum": [
+            "none",
+            "needsReview",
+            "confirmed"
+          ]
+        },
+        "quads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Quad"
+          },
+          "maxItems": 10000,
+          "minItems": 0
+        },
+        "textAnchor": {
+          "$ref": "#/$defs/TextAnchor"
+        },
+        "anchor": {
+          "$ref": "#/$defs/Point"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "fontFamily": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "alignment": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Point"
+            },
+            "maxItems": 100000,
+            "minItems": 2
+          },
+          "maxItems": 100,
+          "minItems": 0
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "strokeWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "fill": {
+          "type": "string",
+          "maxLength": 9
+        },
+        "from": {
+          "$ref": "#/$defs/Point"
+        },
+        "to": {
+          "$ref": "#/$defs/Point"
+        },
+        "endStyle": {
+          "enum": [
+            "arrow",
+            "none"
+          ]
+        },
+        "llmRef": {
+          "type": "object",
+          "properties": {
+            "conversationId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "messageId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          "required": [
+            "conversationId",
+            "messageId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "docHash",
+        "page",
+        "type",
+        "rect",
+        "color",
+        "opacity",
+        "author",
+        "createdAt",
+        "modifiedAt",
+        "revision",
+        "migrationState"
+      ],
+      "additionalProperties": false
+    },
+    "Content": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "text"
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 1000000
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "attachment"
+            },
+            "attachmentId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          "required": [
+            "type",
+            "attachmentId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "error"
+            },
+            "code": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "type",
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "citation"
+            },
+            "page": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "quote": {
+              "type": "string",
+              "maxLength": 20000
+            },
+            "textRevision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "type",
+            "page",
+            "quote",
+            "textRevision"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "toolCall"
+            },
+            "toolCallId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "argumentsJson": {
+              "type": "string",
+              "maxLength": 20000
+            }
+          },
+          "required": [
+            "type",
+            "toolCallId",
+            "name",
+            "argumentsJson"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "toolResult"
+            },
+            "toolCallId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "resultJson": {
+              "type": "string",
+              "maxLength": 20000
+            }
+          },
+          "required": [
+            "type",
+            "toolCallId",
+            "resultJson"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "conversationId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "parentId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "branchId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "role": {
+          "enum": [
+            "user",
+            "assistant",
+            "tool"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "state": {
+          "enum": [
+            "running",
+            "completed",
+            "cancelled",
+            "failed",
+            "interrupted"
+          ]
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Content"
+          },
+          "maxItems": 100,
+          "minItems": 0
+        },
+        "modelRef": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "usage": {
+          "type": "object",
+          "properties": {
+            "inputTokens": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "outputTokens": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          },
+          "required": [
+            "inputTokens",
+            "outputTokens"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "conversationId",
+        "parentId",
+        "branchId",
+        "role",
+        "createdAt",
+        "state",
+        "sequence",
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "Conversation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "modelRef": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "createdAt": {
+          "type": "string",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "modelRef",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "Model": {
+      "type": "object",
+      "properties": {
+        "modelId": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "input": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "text",
+              "image"
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 1
+        },
+        "contextWindow": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "maxOutputTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "modelId",
+        "input",
+        "contextWindow",
+        "maxOutputTokens"
+      ],
+      "additionalProperties": false
+    },
+    "Provider": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "api": {
+          "enum": [
+            "openai-completions",
+            "openai-responses",
+            "anthropic-messages",
+            "google-generative-ai"
+          ]
+        },
+        "baseUrl": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "isDefault": {
+          "type": "boolean"
+        },
+        "imageAllowed": {
+          "type": "boolean"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Model"
+          },
+          "maxItems": 200,
+          "minItems": 0
+        },
+        "hasKey": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "api",
+        "baseUrl",
+        "isDefault",
+        "imageAllowed",
+        "models",
+        "hasKey"
+      ],
+      "additionalProperties": false
+    },
+    "Job": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "docId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "contentRevision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "textRevision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "pageGeneration": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "phase": {
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "cancelled"
+          ]
+        }
+      },
+      "required": [
+        "jobId",
+        "docId",
+        "page",
+        "contentRevision",
+        "textRevision",
+        "pageGeneration",
+        "phase"
+      ],
+      "additionalProperties": false
+    },
+    "Effect": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "runId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "toolCallId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "annotationIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "maxItems": 100,
+          "minItems": 0
+        },
+        "result": {
+          "type": "string",
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "conversationId",
+        "runId",
+        "toolCallId",
+        "annotationIds",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "Mutation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "annotation.put"
+            },
+            "value": {
+              "$ref": "#/$defs/Annotation"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "conversation.put"
+            },
+            "value": {
+              "$ref": "#/$defs/Conversation"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "message.put"
+            },
+            "value": {
+              "$ref": "#/$defs/Message"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "effect.put"
+            },
+            "value": {
+              "$ref": "#/$defs/Effect"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "annotation.remove"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          "required": [
+            "type",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "conversation.remove"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          "required": [
+            "type",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "message.remove"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          "required": [
+            "type",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Command": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "batch"
+        },
+        "mutations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Mutation"
+          },
+          "maxItems": 1000,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "type",
+        "mutations"
+      ],
+      "additionalProperties": false
+    },
+    "CommitCommand": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "operationId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "docId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "payloadHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "command": {
+          "$ref": "#/$defs/Command"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "operationId",
+        "docId",
+        "expectedRevision",
+        "payloadHash",
+        "command"
+      ],
+      "additionalProperties": false
+    },
+    "CommitResult": {
+      "type": "object",
+      "properties": {
+        "operationId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "committedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "payloadHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "operationId",
+        "committedRevision",
+        "payloadHash"
+      ],
+      "additionalProperties": false
+    },
+    "Error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "additionalProperties": false
+    },
+    "Request": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "kind": {
+          "const": "req"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "method": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z]+\\.[a-zA-Z]+$"
+        },
+        "params": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "v",
+        "kind",
+        "id",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "Response": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "kind": {
+              "const": "res"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "ok": {
+              "const": true
+            },
+            "result": {}
+          },
+          "required": [
+            "v",
+            "kind",
+            "id",
+            "ok",
+            "result"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "kind": {
+              "const": "res"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "ok": {
+              "const": false
+            },
+            "error": {
+              "$ref": "#/$defs/Error"
+            }
+          },
+          "required": [
+            "v",
+            "kind",
+            "id",
+            "ok",
+            "error"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Event": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "kind": {
+          "const": "event"
+        },
+        "topic": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "docId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "runId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "payload": {}
+      },
+      "required": [
+        "v",
+        "kind",
+        "topic",
+        "seq",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "Settings": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "chatWidth": {
+          "type": "integer",
+          "minimum": 340,
+          "maximum": 640
+        },
+        "sidePanel": {
+          "enum": [
+            "none",
+            "thumbnails",
+            "outline",
+            "annotations"
+          ]
+        },
+        "tool": {
+          "enum": [
+            "select",
+            "highlight",
+            "underline",
+            "note",
+            "freetext",
+            "ink",
+            "rect",
+            "arrow",
+            "regionAsk",
+            "eraser"
+          ]
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 100
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "window": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "number",
+              "minimum": -1000000000,
+              "maximum": 1000000000
+            },
+            "top": {
+              "type": "number",
+              "minimum": -1000000000,
+              "maximum": 1000000000
+            },
+            "width": {
+              "type": "number",
+              "minimum": 320,
+              "maximum": 20000
+            },
+            "height": {
+              "type": "number",
+              "minimum": 240,
+              "maximum": 20000
+            },
+            "maximized": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "left",
+            "top",
+            "width",
+            "height",
+            "maximized"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "revision",
+        "author",
+        "chatWidth",
+        "sidePanel",
+        "tool",
+        "color",
+        "strokeWidth",
+        "opacity",
+        "window"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

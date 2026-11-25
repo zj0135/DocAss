@@ -1,0 +1,8 @@
+@import "tailwindcss" source("./");
+@import "./styles/tokens.css";
+html, body, #root { margin: 0; width: 100%; height: 100%; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+/* WebView2 non-client regions use native drag and double-click behavior. */
+.native-titlebar { -webkit-app-region: drag; app-region: drag; }
+.native-titlebar button, .native-titlebar [data-no-drag] { -webkit-app-region: no-drag; app-region: no-drag; }
+.native-titlebar button:disabled { opacity: .35; cursor: default; }
+.settings-input { display: block; width: 100%; margin-top: .35rem; border: 1px solid #e2e8f0; border-radius: .5rem; padding: .5rem .75rem; background: white; outline-color: #3b82f6; }

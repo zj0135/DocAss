@@ -1,0 +1,51 @@
+[
+    {
+        "file":  "fonts/NotoSansCJKsc-Regular.otf",
+        "url":  "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf",
+        "sha256":  "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+        "license":  "OFL-1.1"
+    },
+    {
+        "file":  "fonts/OFL.txt",
+        "url":  "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE",
+        "sha256":  "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+        "license":  "OFL-1.1"
+    },
+    {
+        "file":  "fonts/NotoSansHebrew-Regular.ttf",
+        "url":  "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansHebrew/NotoSansHebrew-Regular.ttf",
+        "license":  "OFL-1.1",
+        "sha256":  "a7fa16fffb27bedb060a0866267c29e9859aeb9c21cc33f5b3aaf6eb062eca85"
+    },
+    {
+        "file":  "fonts/NotoSansArabic-Regular.ttf",
+        "url":  "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf",
+        "license":  "OFL-1.1",
+        "sha256":  "ceea25b464a656dc3b26849bab9356740401af62aedf1bfa8b7f0d9b75925b1b"
+    },
+    {
+        "file":  "fonts/NotoEmoji.ttf",
+        "url":  "https://raw.githubusercontent.com/google/fonts/6ebe737e44fd64ee736bbc6feed6136a6dbfd222/ofl/notoemoji/NotoEmoji%5Bwght%5D.ttf",
+        "license":  "OFL-1.1",
+        "sha256":  "de6c18832938afc99caf132b39d6a30a19bac7f2e812e28db2535b4608d27551"
+    },
+    {
+        "file":  "fonts/NotoEmoji-OFL.txt",
+        "url":  "https://raw.githubusercontent.com/google/fonts/6ebe737e44fd64ee736bbc6feed6136a6dbfd222/ofl/notoemoji/OFL.txt",
+        "license":  "OFL-1.1",
+        "sha256":  "500bb1ccf43df7bbb522112f9133a52b16e1c35e809632f5d8609b179152de5b"
+    },
+    {
+        "file":  "downloads/qpdf.zip",
+        "url":  "https://github.com/qpdf/qpdf/releases/download/v12.3.2/qpdf-12.3.2-msvc64.zip",
+        "sha256":  "8941870a604e7c87ed24566b038d46c24ce76616254d2383c578f60c0677f202",
+        "license":  "Apache-2.0"
+    },
+    {
+        "file":  "downloads/chars74k-prefix.tgz",
+        "url":  "https://info-ee.surrey.ac.uk/CVSSP/demos/chars74k/FullImagesAndAnnotations_Frontal.tgz",
+        "prefixBytes":  4194304,
+        "sha256":  "fd2f59f9412c9d6cb238dde9f507f7a15dbec8d141885679bcaff72abc4b5cba",
+        "license":  "Dataset terms: acknowledge source and cite de Campos et al. (VISAPP 2009)"
+    }
+]

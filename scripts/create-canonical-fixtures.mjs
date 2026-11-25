@@ -1,0 +1,4 @@
+import {writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value!==null&&typeof value==='object'?'{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}':JSON.stringify(value);
+const values=[{text:'中文😀\n\t"\\',a:1e-7,z:-0},...[-1e9,1e-6,1.2345678901234567e-6,1e-7,0.00010000000000000002,1.0000000000000002,123456789.01234567].map(value=>({value})),{schemaVersion:1,docHash:'a'.repeat(64),command:{type:'batch',mutations:[{type:'conversation.put',value:{id:'11111111-1111-4111-8111-111111111111',title:'中文😀',modelRef:'fixture',createdAt:'2026-11-25'}}]}}];
+writeFileSync('src/shared/canonical-fixtures.json',JSON.stringify(values.map(value=>{const text=canonical(value);return{value,canonical:text,sha256:createHash('sha256').update(text,'utf8').digest('hex')};}),null,2)+'\n');

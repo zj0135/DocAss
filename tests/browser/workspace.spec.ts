@@ -1,0 +1,12 @@
+import {test,expect} from '@playwright/test';
+test('empty default workspace, explicit demo and saved settings',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/');await expect(page.getByText('工作区中还没有文档')).toBeVisible();await expect(page.getByText('年度经营分析报告')).toHaveCount(0);
+ await page.getByRole('button',{name:'应用设置',exact:true}).click();await page.getByRole('textbox',{name:'标注作者'}).fill('浏览器验收作者');await page.getByRole('button',{name:'保存',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);await page.reload();await page.getByRole('button',{name:'应用设置',exact:true}).click();await expect(page.getByRole('textbox',{name:'标注作者'})).toHaveValue('浏览器验收作者');await page.getByRole('button',{name:'关闭设置'}).click();await page.screenshot({path:'artifacts/screenshots/browser-empty.png'});
+ await page.getByRole('link',{name:'查看界面演示'}).click();await expect(page.getByTitle('切换场景 1')).toHaveCount(0);await expect(page.locator('body')).toContainText('DocAss');expect(errors).toEqual([]);
+});
+test('two document sessions, cancellation, acknowledged note survives refresh',async({page})=>{
+ await page.goto('/');await page.getByRole('button',{name:'打开报告示例'}).click();await page.getByRole('button',{name:'下一页'}).click();await expect(page.getByTestId('page')).toHaveText('第 2 页');await page.getByRole('textbox',{name:'示例笔记'}).fill('已确认的笔记');await page.getByRole('button',{name:'保存笔记'}).click();await expect(page.getByRole('status')).toContainText('版本 1');
+ await page.getByRole('button',{name:'生成示例回复'}).click();await expect(page.getByTestId('fixture-reply')).not.toBeEmpty();await page.getByRole('button',{name:'停止示例回复'}).click();const stopped=await page.getByTestId('fixture-reply').textContent();await page.waitForTimeout(600);expect(await page.getByTestId('fixture-reply').textContent()).toBe(stopped);
+ await page.getByRole('button',{name:'打开合同示例'}).click();await expect(page.getByTestId('page')).toHaveText('第 1 页');await expect(page.getByRole('textbox',{name:'示例笔记'})).toHaveValue('');await page.getByText('示例经营报告.pdf',{exact:true}).first().click();await expect(page.getByTestId('page')).toHaveText('第 2 页');
+ await page.reload();await page.getByRole('button',{name:'打开报告示例'}).click();await expect(page.getByRole('listitem')).toContainText('已确认的笔记');await page.screenshot({path:'artifacts/screenshots/browser-session.png'});
+});

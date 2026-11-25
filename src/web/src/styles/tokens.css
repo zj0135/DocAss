@@ -1,0 +1,87 @@
+:root {
+  /* Brand & Accents */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-weak: #e8f1fe;
+  --accent-light: #eff6ff;
+
+  /* Neutrals & Text */
+  --text: #1f2329;
+  --text-2: #5f6672;
+  --text-3: #8a9099;
+  --text-inverse: #ffffff;
+
+  /* Surfaces & Backgrounds */
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-hover: #f8fafc;
+  --canvas: #e6e8ec;
+  --border: #e3e6ea;
+  --border-light: #f0f2f5;
+
+  /* Annotation Palette */
+  --annot-yellow: #f6c445;
+  --annot-green: #22c55e;
+  --annot-blue: #3b82f6;
+  --annot-red: #ef4444;
+  --annot-purple: #a855f7;
+  --annot-orange: #f59e0b;
+
+  /* Semantic Colors */
+  --success: #16a34a;
+  --success-bg: #ecfdf5;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --error: #dc2626;
+  --error-bg: #fef2f2;
+
+  /* Dimensions */
+  --titlebar-height: 48px;
+  --toolbar-height: 44px;
+  --statusbar-height: 28px;
+  --toolrail-width: 48px;
+  --sidepanel-width: 280px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-floating: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.16);
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif;
+  color: var(--text);
+  background-color: var(--bg);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

@@ -1,0 +1,82 @@
+[
+  {
+    "value": {
+      "text": "中文😀\n\t\"\\",
+      "a": 1e-7,
+      "z": 0
+    },
+    "canonical": "{\"a\":1e-7,\"text\":\"中文😀\\n\\t\\\"\\\\\",\"z\":0}",
+    "sha256": "966bb3b990958f0b2ddaa61a6f510b58bff2d560291f285d97dfec0c2efe1c31"
+  },
+  {
+    "value": {
+      "value": -1000000000
+    },
+    "canonical": "{\"value\":-1000000000}",
+    "sha256": "68e05a99fe0f11092a98b85035aa5e59604f057200609a3a79064babfc270248"
+  },
+  {
+    "value": {
+      "value": 0.000001
+    },
+    "canonical": "{\"value\":0.000001}",
+    "sha256": "bc1c982dd4e677d72ff5821cc67554e045e838a31ddc55fa0fdb1a32d5a1dce9"
+  },
+  {
+    "value": {
+      "value": 0.0000012345678901234567
+    },
+    "canonical": "{\"value\":0.0000012345678901234567}",
+    "sha256": "db1fede1f41007bd156d32de45927a7af32bdb33dbcb0aea5b0a5572ed0f9fc2"
+  },
+  {
+    "value": {
+      "value": 1e-7
+    },
+    "canonical": "{\"value\":1e-7}",
+    "sha256": "910750038eb30a40d06da88009b6259aabaf3751b3cb212c616d51abb6b008a4"
+  },
+  {
+    "value": {
+      "value": 0.00010000000000000002
+    },
+    "canonical": "{\"value\":0.00010000000000000002}",
+    "sha256": "d7b48615d56897dd632ace9c804ddc2cc452eaeea5fe926322c484919abc4971"
+  },
+  {
+    "value": {
+      "value": 1.0000000000000002
+    },
+    "canonical": "{\"value\":1.0000000000000002}",
+    "sha256": "156c932c6713198c5f24a01051d7e2e335842c1401a0fbb9ac1b488eeea7510e"
+  },
+  {
+    "value": {
+      "value": 123456789.01234567
+    },
+    "canonical": "{\"value\":123456789.01234567}",
+    "sha256": "4f6e9f3c5846a59ca3b22728d084560cab4124ddba2d3278191bc798c31eaf4d"
+  },
+  {
+    "value": {
+      "schemaVersion": 1,
+      "docHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "command": {
+        "type": "batch",
+        "mutations": [
+          {
+            "type": "conversation.put",
+            "value": {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "title": "中文😀",
+              "modelRef": "fixture",
+              "createdAt": "2026-11-25"
+            }
+          }
+        ]
+      }
+    },
+    "canonical": "{\"command\":{\"mutations\":[{\"type\":\"conversation.put\",\"value\":{\"createdAt\":\"2026-11-25\",\"id\":\"11111111-1111-4111-8111-111111111111\",\"modelRef\":\"fixture\",\"title\":\"中文😀\"}}],\"type\":\"batch\"},\"docHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"schemaVersion\":1}",
+    "sha256": "161bf96be4a61ffa9f63bae0b28ecedf0df92a98066a8f67cc38c69ab730b13c"
+  }
+]

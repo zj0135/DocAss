@@ -1,0 +1,6 @@
+packages:
+  - 'src/web'
+minimumReleaseAgeExclude:
+  - '@vitest/mocker@5.1.2'
+  - '@vitest/spy@5.1.2'
+  - vitest@5.1.2

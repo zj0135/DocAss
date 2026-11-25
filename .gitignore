@@ -1,0 +1,27 @@
+node_modules/
+**/bin/
+**/obj/
+**/dist/
+artifacts/
+test-results/
+playwright-report/
+*.user
+# Local experiments, browser profiles, generated samples, downloaded tools and evidence.
+docs/spikes/
+docs/validation/evidence/
+docs/validation/*.json
+docs/fixtures/generated/
+docs/fixtures/fonts/
+docs/fixtures/downloads/
+docs/screenshots/
+docs/image*.png
+src/web/src/assets/hero.png
+*.db
+*.db-*
+*.trx
+*.log
+*.tsbuildinfo
+.vs/
+.env
+.env.*
+!*.lock.json

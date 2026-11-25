@@ -1,0 +1,52 @@
+[
+  {
+    "name": "openai",
+    "version": "7.59.0",
+    "entrySha256": "17cdb2c28d43e69bad6688cbefcf206674d15efaff37481923eef2991a239e11",
+    "headers": [
+      "accept",
+      "authorization",
+      "content-type",
+      "user-agent",
+      "x-stainless-arch",
+      "x-stainless-lang",
+      "x-stainless-os",
+      "x-stainless-package-version",
+      "x-stainless-retry-count",
+      "x-stainless-runtime",
+      "x-stainless-runtime-version"
+    ]
+  },
+  {
+    "name": "@anthropic-ai/sdk",
+    "version": "0.129.0",
+    "entrySha256": "7eeb08383482b92553109e664e021eec1f2782ebc75c012361d3814c1f5a479b",
+    "headers": [
+      "accept",
+      "anthropic-dangerous-direct-browser-access",
+      "anthropic-version",
+      "content-type",
+      "user-agent",
+      "x-api-key",
+      "x-stainless-arch",
+      "x-stainless-lang",
+      "x-stainless-os",
+      "x-stainless-package-version",
+      "x-stainless-retry-count",
+      "x-stainless-runtime",
+      "x-stainless-runtime-version",
+      "x-stainless-timeout"
+    ]
+  },
+  {
+    "name": "@google/genai",
+    "version": "2.32.0",
+    "entrySha256": "cde700ed18e15cca93dda3dea0f469d652527a8eaf64fda870d588040389e5e2",
+    "headers": [
+      "content-type",
+      "user-agent",
+      "x-goog-api-client",
+      "x-goog-api-key"
+    ]
+  }
+]
