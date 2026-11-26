@@ -6,11 +6,7 @@ interface SplitterProps {
   isDragging: boolean;
 }
 
-export const Splitter: React.FC<SplitterProps> = ({
-  onMouseDown,
-  onDoubleClick,
-  isDragging,
-}) => {
+export const Splitter: React.FC<SplitterProps> = ({ onMouseDown, onDoubleClick, isDragging }) => {
   return (
     <div
       onMouseDown={onMouseDown}

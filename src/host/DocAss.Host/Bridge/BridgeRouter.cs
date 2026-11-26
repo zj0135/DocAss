@@ -5,7 +5,7 @@ using DocAss.Host.Contracts;
 
 namespace DocAss.Host.Bridge;
 
-public sealed class BridgeRouter(string trustedOrigin) : IDisposable
+public sealed class BridgeRouter(string trustedOrigin) : IBridgeRouter
 {
     private readonly Dictionary<string, Func<JsonElement, CancellationToken, Task<object?>>> methods = new();
     private readonly ConcurrentDictionary<string, CancellationTokenSource> pending = new();

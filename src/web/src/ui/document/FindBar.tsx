@@ -1,12 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Search,
-  ChevronUp,
-  ChevronDown,
-  X,
-  AlertCircle,
-  Loader2,
-} from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, X, AlertCircle, Loader2 } from 'lucide-react';
 
 interface FindBarProps {
   isOpen: boolean;
@@ -53,7 +46,7 @@ export const FindBar: React.FC<FindBarProps> = ({
         <input
           type="text"
           value={searchTerm}
-          onChange={(e) => onSearchTermChange(e.target.value)}
+          onChange={e => onSearchTermChange(e.target.value)}
           placeholder="在文档中查找..."
           autoFocus
           className="flex-1 text-[13px] text-[#1f2329] focus:outline-hidden placeholder:text-slate-400 min-w-0"

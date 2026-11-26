@@ -3,16 +3,16 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using DocAss.Host.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using DocAss.Host.Contracts;
 
 namespace DocAss.Host.Http;
 
-public sealed class LoopbackServer(string trustedOrigin, Func<CancellationToken,IAsyncEnumerable<string>>? upstream = null, ProviderProxy? providers = null) : IAsyncDisposable
+public sealed class LoopbackServer(string trustedOrigin, Func<CancellationToken, IAsyncEnumerable<string>>? upstream = null, ProviderProxy? providers = null) : ILoopbackServer
 {
     public static readonly HashSet<string> AllowedHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -77,14 +77,14 @@ public sealed class LoopbackServer(string trustedOrigin, Func<CancellationToken,
             }
             using var document = JsonDocument.Parse(body); Contract.Fields(document.RootElement);
             response.ContentType = "text/event-stream"; response.Headers.CacheControl = "no-cache";
-            using var sourceLifetime=CancellationTokenSource.CreateLinkedTokenSource(cancel.Token);
-            await using var source=(upstream??SyntheticUpstream)(sourceLifetime.Token).GetAsyncEnumerator(sourceLifetime.Token);
+            using var sourceLifetime = CancellationTokenSource.CreateLinkedTokenSource(cancel.Token);
+            await using var source = (upstream ?? SyntheticUpstream)(sourceLifetime.Token).GetAsyncEnumerator(sourceLifetime.Token);
             while (true)
             {
                 sourceLifetime.CancelAfter(IdleTimeout);
-                if(!await source.MoveNextAsync())break;
+                if (!await source.MoveNextAsync()) break;
                 sourceLifetime.CancelAfter(Timeout.InfiniteTimeSpan);
-                var part=source.Current;
+                var part = source.Current;
                 await response.WriteAsync("data: " + Json.String(new { text = part }) + "\n\n", cancel.Token);
                 await response.Body.FlushAsync(cancel.Token);
             }
@@ -92,14 +92,14 @@ public sealed class LoopbackServer(string trustedOrigin, Func<CancellationToken,
         }
         catch (OperationCanceledException) { Interlocked.Increment(ref cancelled); if (isProvider && !context.RequestAborted.IsCancellationRequested) { if (!response.HasStarted) { response.StatusCode = 504; await response.WriteAsJsonAsync(new { code = "TIMEOUT", message = "模型请求超时或已取消" }); } else context.Abort(); } }
         catch (AppException ex) { if (!response.HasStarted) { response.StatusCode = ex.Code == "AUTH_FAILED" ? 401 : ex.Code == "RATE_LIMITED" ? 429 : 400; await response.WriteAsJsonAsync(ex.ToDto()); } else context.Abort(); }
-        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException) {if(!response.HasStarted){response.StatusCode=400;await response.WriteAsJsonAsync(new{code="INVALID_PAYLOAD",message="模型请求格式无效"});}else context.Abort();}
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException) { if (!response.HasStarted) { response.StatusCode = 400; await response.WriteAsJsonAsync(new { code = "INVALID_PAYLOAD", message = "模型请求格式无效" }); } else context.Abort(); }
         catch (Exception ex) when (ex is AppException or JsonException or IOException)
         { if (!response.HasStarted) response.StatusCode = 400; else context.Abort(); }
         finally { requests.TryRemove(id, out _); if (entered) slots.Release(); CancelledRequests = cancelled; }
     }
     private static async IAsyncEnumerable<string> SyntheticUpstream([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken token)
     {
-        foreach(var part in new[]{"第一段","第二段","第三段","第四段"}){await Task.Delay(250,token);yield return part;}
+        foreach (var part in new[] { "第一段", "第二段", "第三段", "第四段" }) { await Task.Delay(250, token); yield return part; }
     }
     private int cancelled;
     private void Cors(HttpResponse response) { response.Headers.AccessControlAllowOrigin = trustedOrigin; response.Headers.Vary = "Origin"; }

@@ -1,11 +1,6 @@
 import React from 'react';
 import type { SidePanelType } from '../types';
-import {
-  MousePointer2,
-  LayoutGrid,
-  ListTree,
-  Tag,
-} from 'lucide-react';
+import { MousePointer2, LayoutGrid, ListTree, Tag } from 'lucide-react';
 
 interface ToolRailProps {
   activePanel: SidePanelType;

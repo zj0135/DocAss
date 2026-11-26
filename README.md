@@ -33,25 +33,58 @@ dotnet restore DocAss.sln
 pnpm dev                 # 启动前端开发服务器 (http://localhost:5173)
 pnpm dev:host            # 启动 WPF 桌面宿主（连接本地前端 Vite 服务）
 
-# 4. 生产构建
+# 4. 代码格式化与质量检查
+pnpm format              # 同时格式化前后端全部代码 (Prettier + dotnet format)
+pnpm format:web          # 使用 Prettier 格式化前端代码 (TS, TSX, CSS, JSON)
+pnpm format:host         # 使用 dotnet format 格式化后端 C# 代码
+pnpm lint:web            # 使用 Oxlint 检查前端代码规范
+
+# 5. 契约生成
+pnpm run generate:contracts # 由 JSON Schema 重新生成前后端 DTO 模型与校验器
+
+# 6. 生产构建
 pnpm build               # 构建前端生产资源至 src/web/dist
 pnpm build:host          # 编译 WPF 桌面宿主 Release 版本
 
-# 5. 打包发布
+# 7. 打包发布
 pnpm run publish         # 打包生成桌面单文件自包含应用
 ```
 
-## 工程目录结构
+## 工程目录结构与代码架构
+
+本仓库采用“**抽象与实现分离、按领域功能归类**”的架构设计，统一配置代码风格规范：
 
 ```text
 DocAss/
+├── .editorconfig               # 全局编辑器代码格式化规范 (C#, TS, CSS, JSON)
+├── .prettierrc.json            # 前端 Prettier 格式化配置
 ├── src/
 │   ├── host/DocAss.Host/       # WPF 桌面宿主与核心服务源码 (C#)
-│   ├── web/src/                # React 19 + TypeScript + Tailwind 前端界面源码
-│   └── shared/                 # 前后端共享类型定义与 JSON Schema
+│   │   ├── Bridge/             # 通信桥（IBridgeRouter 接口与 WebMessage 路由）
+│   │   ├── Storage/            # 本地持久化（IStorageService, IAttachmentService, SQLite, 备份）
+│   │   ├── Documents/          # 文档解析（IDocumentRegistry, IDocumentService, ITextGeometryService）
+│   │   ├── Ocr/                # 本地 OCR（IOcrScheduler, SimdPaddleOCR 引擎, 缓存）
+│   │   ├── Settings/           # 偏好配置（ISettingsService, DPAPI CredentialVault）
+│   │   ├── Http/               # 回环代理（ILoopbackServer, IProviderProxy, 资源加载器）
+│   │   ├── Windowing/          # 窗口生命周期（ICloseCoordinator, 多屏 DPI 适配）
+│   │   └── Verification/       # 自动化与验收验证套件
+│   ├── web/src/                # React 19 + TypeScript + Tailwind 前端源码
+│   │   ├── services/           # 领域服务抽象（AppServices 接口契约，Desktop/Browser 实现）
+│   │   ├── contracts/          # 前后端共享协议类型与自动校验器
+│   │   ├── documents/          # 文档视口渲染（PDF.js, 图片文档, 滚动虚拟化）
+│   │   ├── annotations/        # 富标注绘制、撤销重做与版本迁移
+│   │   ├── llm/                # AI 会话管理、流式响应适配与 Agent 工具执行
+│   │   ├── ocr/                # 文字层管理与 OCR 异步状态协调
+│   │   ├── state/              # Zustand 全局与文档会话状态管理
+│   │   └── ui/                 # 界面视图组件
+│   │       ├── settings/tabs/  # 设置对话框模块化子面板 (Providers, Annotation, Ocr, About)
+│   │       ├── chat/           # 智能助手聊天面板与 LiveMessage 消息渲染
+│   │       ├── document/       # 悬浮便签卡片与文档搜索条
+│   │       ├── panels/         # 缩略图、目录大纲与标注面板
+│   │       └── primitives/     # 自定义通用 UI 控件 (Select, Switch, Toast, Dialog)
+│   └── shared/                 # 前后端共享类型定义、JSON Schema 与测试用例
 ├── docs/                       # 产品需求与核心系统设计文档
-├── scripts/                    # 资源拷贝与发布打包脚本
-├── third-party/                # 第三方开源合规协议
+├── scripts/                    # 契约生成、资源拷贝与发布打包脚本
 ├── DocAss.sln                  # 桌面端主解决方案
 └── package.json                # 前端与全局构建配置
 ```

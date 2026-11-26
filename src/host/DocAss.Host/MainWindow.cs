@@ -6,8 +6,6 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
 using DocAss.Host.Bridge;
 using DocAss.Host.Contracts;
 using DocAss.Host.Documents;
@@ -15,6 +13,8 @@ using DocAss.Host.Http;
 using DocAss.Host.Settings;
 using DocAss.Host.Storage;
 using DocAss.Host.Windowing;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.Wpf;
 
 namespace DocAss.Host;
 
@@ -48,12 +48,12 @@ public sealed partial class MainWindow : Window
     private int resourceStarted, resourceCompleted;
     public MainWindow(bool development, Verification.AcceptanceOptions? acceptance = null)
     {
-        this.development = development; this.acceptance=acceptance; verificationOutput=acceptance?.Output;
+        this.development = development; this.acceptance = acceptance; verificationOutput = acceptance?.Output;
         origin = development ? DevelopmentOrigin : PublishedOrigin;
-        dataDirectory = verificationOutput == null ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DocAss", "data") : Path.Combine(Path.GetDirectoryName(verificationOutput)!, Path.GetFileNameWithoutExtension(verificationOutput)+"-data");
+        dataDirectory = verificationOutput == null ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DocAss", "data") : Path.Combine(Path.GetDirectoryName(verificationOutput)!, Path.GetFileNameWithoutExtension(verificationOutput) + "-data");
         storage = new(Path.Combine(dataDirectory, "workspace.db")); documents = new(dataDirectory); settings = new(storage); attachments = new(storage, documents, dataDirectory);
         files = new(dataDirectory, documents, storage); geometry = new(files);
-        ocr=new(files,geometry,settings,storage,dataDirectory);ocr.Changed+=value=>Dispatcher.BeginInvoke(()=>Emit("ocr.changed",value));
+        ocr = new(files, geometry, settings, storage, dataDirectory); ocr.Changed += value => Dispatcher.BeginInvoke(() => Emit("ocr.changed", value));
         providerProxy = new(settings); loopback = new(origin, providers: providerProxy); bridge = new(origin); resources = new(Path.Combine(AppContext.BaseDirectory, "wwwroot"), origin);
         close = new(async () => { await SavePlacementAsync(); await storage.DrainAsync(); if (!storage.IsReadOnly) await storage.BackupAsync(); });
         Title = "DocAss 文档助手"; Width = 1280; Height = 800; WindowStyle = WindowStyle.SingleBorderWindow; ResizeMode = ResizeMode.CanResize;
@@ -63,7 +63,7 @@ public sealed partial class MainWindow : Window
         StateChanged += (_, _) => Emit("window.stateChanged", new { maximized = WindowState == WindowState.Maximized });
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         SourceInitialized += (_, _) => System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle)?.AddHook(DisplayMessage);
-        RegisterMethods(); RegisterDocumentMethods();RegisterCloseMethods();RegisterOcrMethods();
+        RegisterMethods(); RegisterDocumentMethods(); RegisterCloseMethods(); RegisterOcrMethods();
     }
     private async Task InitializeAsync()
     {
@@ -84,7 +84,7 @@ public sealed partial class MainWindow : Window
             core.Settings.IsStatusBarEnabled = false; core.Settings.IsNonClientRegionSupportEnabled = true;
             core.NavigationStarting += (_, e) => { if (!bridge.TrustedPage(e.Uri, true)) e.Cancel = true; else bridge.Reset(); };
             core.FrameNavigationStarting += (_, e) => e.Cancel = true;
-            core.NewWindowRequested += (_, e) => {e.Handled=true;if(e.IsUserInitiated&&Uri.TryCreate(e.Uri,UriKind.Absolute,out var uri)&&uri.Scheme is "https" or "http" or "mailto")try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri){UseShellExecute=true});}catch{}};
+            core.NewWindowRequested += (_, e) => { e.Handled = true; if (e.IsUserInitiated && Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri) && uri.Scheme is "https" or "http" or "mailto") try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true }); } catch { } };
             core.DownloadStarting += (_, e) => e.Cancel = true;
             core.PermissionRequested += (_, e) => { permissionRequests.Add(e.PermissionKind.ToString()); e.State = CoreWebView2PermissionState.Deny; e.Handled = true; };
             core.ProcessFailed += (_, _) => ShowError("页面进程已退出", "已确认的数据保存在本机，请重新启动应用。");
@@ -114,14 +114,14 @@ public sealed partial class MainWindow : Window
         {
             var error = StorageService.MapError(ex) as AppException;
             if (ex is WebView2RuntimeNotFoundException)
-            { ShowError("需要 Microsoft Edge WebView2 Runtime", "请安装 WebView2 Evergreen Runtime，然后重新启动 DocAss。",true);await VerifyStartupFailureAsync("runtimeMissing");return; }
+            { ShowError("需要 Microsoft Edge WebView2 Runtime", "请安装 WebView2 Evergreen Runtime，然后重新启动 DocAss。", true); await VerifyStartupFailureAsync("runtimeMissing"); return; }
             ShowError("DocAss 启动失败", error?.Message ?? "无法初始化宿主或本机通道，请检查运行时和数据目录权限。", recovery: error?.Code == "DATABASE_CORRUPT");
             if (verificationOutput != null) { Directory.CreateDirectory(Path.GetDirectoryName(verificationOutput)!); await File.WriteAllTextAsync(verificationOutput, Json.String(new { ok = false, error = ex.GetType().Name, detail = ex.Message })); mayClose = true; await CleanupAsync(); Close(); }
         }
     }
     private async void OnResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
     {
-        if(mayClose)return;
+        if (mayClose) return;
         if (development && !new Uri(e.Request.Uri).AbsolutePath.StartsWith("/_host/")) return;
         var deferral = e.GetDeferral(); Interlocked.Increment(ref resourceStarted);
         try
@@ -129,12 +129,12 @@ public sealed partial class MainWindow : Window
             var headers = e.Request.Headers;
             var request = new ResourceRequest(e.Request.Method, e.Request.Uri, headers.Contains("Range") ? headers.GetHeader("Range") : null, headers.Contains("Content-Type") ? headers.GetHeader("Content-Type") : null, e.Request.Content);
             var result = await Task.Run(() => resources.HandleAsync(request, lifetime.Token));
-            if(mayClose){result.BodyStream?.Dispose();return;}
+            if (mayClose) { result.BodyStream?.Dispose(); return; }
             var responseHeaders = $"Content-Type: {result.Mime}\r\n" + string.Join("\r\n", (result.Headers ?? new()).Select(h => h.Key + ": " + h.Value));
             e.Response = web.CoreWebView2.Environment.CreateWebResourceResponse(result.BodyStream ?? new MemoryStream(result.Body), result.Status, "DocAss", responseHeaders);
         }
         catch { if (!mayClose && web.CoreWebView2 != null) e.Response = web.CoreWebView2.Environment.CreateWebResourceResponse(new MemoryStream(), 500, "Resource failed", "Content-Type: text/plain"); }
-        finally { try{deferral.Dispose();}finally{if(Interlocked.Increment(ref resourceCompleted)==Volatile.Read(ref resourceStarted))resourcesDrained?.TrySetResult();} }
+        finally { try { deferral.Dispose(); } finally { if (Interlocked.Increment(ref resourceCompleted) == Volatile.Read(ref resourceStarted)) resourcesDrained?.TrySetResult(); } }
         // CoreWebView2Deferral.Dispose completes the deferral once, including on exceptions.
     }
     private async Task<ResourceResponse> BusinessResourceAsync(ResourceRequest request, CancellationToken token)
@@ -145,12 +145,12 @@ public sealed partial class MainWindow : Window
             documents.Resolve(parts[2]);
             var documentResponse = await DocumentResourceAsync(parts, request, token);
             if (documentResponse != null) return documentResponse;
-            var ocrResponse=await OcrResourceAsync(parts,request,token);if(ocrResponse!=null)return ocrResponse;
-            if(parts.Length==4&&parts[3]=="snapshot"&&request.Method=="GET")return ResourceResponse.Json(200,await storage.ReadDocumentAsync(documents.Resolve(parts[2]).DocHash,50));
-            if(parts.Length==7&&parts[3]=="conversation"&&parts[5]=="messages"&&request.Method=="GET") {Contract.Require(int.TryParse(parts[6],out var before));return ResourceResponse.Json(200,await storage.ReadMessagesPageAsync(documents.Resolve(parts[2]).DocHash,parts[4],before));}
+            var ocrResponse = await OcrResourceAsync(parts, request, token); if (ocrResponse != null) return ocrResponse;
+            if (parts.Length == 4 && parts[3] == "snapshot" && request.Method == "GET") return ResourceResponse.Json(200, await storage.ReadDocumentAsync(documents.Resolve(parts[2]).DocHash, 50));
+            if (parts.Length == 7 && parts[3] == "conversation" && parts[5] == "messages" && request.Method == "GET") { Contract.Require(int.TryParse(parts[6], out var before)); return ResourceResponse.Json(200, await storage.ReadMessagesPageAsync(documents.Resolve(parts[2]).DocHash, parts[4], before)); }
             if (parts.Length == 4 && parts[3] == "commands" && request.Method == "POST")
             {
-                if(close.State!="open")throw new AppException("BUSY","正在关闭，暂停接收新命令");
+                if (close.State != "open") throw new AppException("BUSY", "正在关闭，暂停接收新命令");
                 using var json = JsonDocument.Parse(await BoundedRead.ReadAsync(request.Body ?? Stream.Null, 16 * 1024 * 1024, token));
                 Contract.Require(json.RootElement.GetProperty("docId").GetString() == parts[2]);
                 return ResourceResponse.Json(200, await storage.CommitAsync(json.RootElement.Clone(), documents));
@@ -166,9 +166,9 @@ public sealed partial class MainWindow : Window
     private void RegisterMethods()
     {
         void Register(string name, Func<JsonElement, Task<object?>> action) => bridge.Register(name, (p, _) => action(p));
-        Register("app.info",p=>{Contract.Fields(p);return Task.FromResult<object?>(new{version=typeof(MainWindow).Assembly.GetName().Version?.ToString(3)??"unknown",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription+" / WebView2 "+web.CoreWebView2.Environment.BrowserVersionString,licenses=Directory.Exists(Path.Combine(AppContext.BaseDirectory,"licenses"))?Directory.GetFiles(Path.Combine(AppContext.BaseDirectory,"licenses")).Select(Path.GetFileName).ToArray():Array.Empty<string>()});});
-        Register("app.openLogs",p=>{Contract.Fields(p);var directory=Path.Combine(Path.GetDirectoryName(dataDirectory)!,"logs");Directory.CreateDirectory(directory);System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(directory){UseShellExecute=true});return Task.FromResult<object?>(null);});
-        Register("app.openLicenses",p=>{Contract.Fields(p);System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.Combine(AppContext.BaseDirectory,"licenses")){UseShellExecute=true});return Task.FromResult<object?>(null);});
+        Register("app.info", p => { Contract.Fields(p); return Task.FromResult<object?>(new { version = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "unknown", runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription + " / WebView2 " + web.CoreWebView2.Environment.BrowserVersionString, licenses = Directory.Exists(Path.Combine(AppContext.BaseDirectory, "licenses")) ? Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "licenses")).Select(Path.GetFileName).ToArray() : Array.Empty<string>() }); });
+        Register("app.openLogs", p => { Contract.Fields(p); var directory = Path.Combine(Path.GetDirectoryName(dataDirectory)!, "logs"); Directory.CreateDirectory(directory); System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(directory) { UseShellExecute = true }); return Task.FromResult<object?>(null); });
+        Register("app.openLicenses", p => { Contract.Fields(p); System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "licenses")) { UseShellExecute = true }); return Task.FromResult<object?>(null); });
         Register("app.bootstrap", async p => { Contract.Fields(p); return new { version = "0.3.0", fixturesEnabled = acceptance != null, capabilities = new { desktop = true, window = true, persistentStorage = true, credentials = true, nativeText = true, ocr = true, llm = true }, loopback = new { origin = loopback.Origin, token = loopback.SessionToken }, settings = await settings.GetAsync(), window = new { maximized = WindowState == WindowState.Maximized }, readOnly = storage.IsReadOnly }; });
         Register("window.minimize", p => { Contract.Fields(p); WindowState = WindowState.Minimized; return Task.FromResult<object?>(null); });
         Register("window.maximize", p => { Contract.Fields(p); WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; return Task.FromResult<object?>(null); });
@@ -190,11 +190,11 @@ public sealed partial class MainWindow : Window
         Register("store.read", async p => { Contract.Fields(p, "docId", "entity"); return await storage.ReadEntitiesAsync(documents.Resolve(p.GetProperty("docId").GetString()!).DocHash, p.GetProperty("entity").GetString()!); });
         Register("store.snapshot", async p => { Contract.Fields(p, "docId"); return await storage.ReadDocumentAsync(documents.Resolve(p.GetProperty("docId").GetString()!).DocHash); });
         Register("doc.reacquire", async p => { Contract.Fields(p, "docId"); var handle = documents.Reacquire(p.GetProperty("docId").GetString()!); return new { handle, documentRevision = await storage.ReadRevisionAsync(handle.DocHash) }; });
-        Register("doc.close", async p => { Contract.Fields(p, "docId"); var id = p.GetProperty("docId").GetString()!; documents.Resolve(id); await storage.DrainAsync(); ocr.Forget(id);geometry.Forget(id); files.Close(id); return null; });
+        Register("doc.close", async p => { Contract.Fields(p, "docId"); var id = p.GetProperty("docId").GetString()!; documents.Resolve(id); await storage.DrainAsync(); ocr.Forget(id); geometry.Forget(id); files.Close(id); return null; });
         Register("doc.flush", async p => { Contract.Fields(p, "docId"); documents.Resolve(p.GetProperty("docId").GetString()!); await storage.DrainAsync(); return null; });
         Register("attachment.begin", p => { Contract.Fields(p, "docId"); return Task.FromResult<object?>(new { uploadId = attachments.Begin(p.GetProperty("docId").GetString()!) }); });
         Register("attachment.commit", async p => { Contract.Fields(p, "docId", "uploadId"); return new { attachmentId = await attachments.CommitAsync(p.GetProperty("docId").GetString()!, p.GetProperty("uploadId").GetString()!) }; });
-        Register("attachment.resolve", async p => { Contract.Fields(p, "docId", "attachmentId"); var docId=p.GetProperty("docId").GetString()!; var id=p.GetProperty("attachmentId").GetString()!; var data=await attachments.ReadAsync(docId,id); return data==null ? (object)new {available=false} : new {available=true,url=$"/_host/doc/{docId}/attachments/{id}"}; });
+        Register("attachment.resolve", async p => { Contract.Fields(p, "docId", "attachmentId"); var docId = p.GetProperty("docId").GetString()!; var id = p.GetProperty("attachmentId").GetString()!; var data = await attachments.ReadAsync(docId, id); return data == null ? (object)new { available = false } : new { available = true, url = $"/_host/doc/{docId}/attachments/{id}" }; });
         Register("attachment.deleteUnused", async p => { Contract.Fields(p); return new { removed = await attachments.CollectAsync() }; });
         Register("stream.cancel", p => { Contract.Fields(p, "requestId"); Contract.Check("Id", p.GetProperty("requestId")); loopback.Cancel(p.GetProperty("requestId").GetString()!); return Task.FromResult<object?>(null); });
         if (verificationOutput != null)
@@ -226,14 +226,14 @@ public sealed partial class MainWindow : Window
     {
         if (mayClose) return; e.Cancel = true;
         if (closing) return; closing = true;
-        if(initialized&&web.CoreWebView2!=null)
+        if (initialized && web.CoreWebView2 != null)
         {
-            frontendClose=new(TaskCreationOptions.RunContinuationsAsynchronously);frontendCloseId=Guid.NewGuid().ToString();Emit("window.closeRequested",new{requestId=frontendCloseId});
-            bool ready;try{ready=await frontendClose.Task.WaitAsync(TimeSpan.FromSeconds(120));}catch(TimeoutException){ready=false;MessageBox.Show("页面未完成保存确认，窗口保持打开。请检查未保存内容后重试。","未关闭");}
-            frontendClose=null;frontendCloseId=null;if(!ready){closing=false;Emit("window.closeCancelled",new{});return;}
+            frontendClose = new(TaskCreationOptions.RunContinuationsAsynchronously); frontendCloseId = Guid.NewGuid().ToString(); Emit("window.closeRequested", new { requestId = frontendCloseId });
+            bool ready; try { ready = await frontendClose.Task.WaitAsync(TimeSpan.FromSeconds(120)); } catch (TimeoutException) { ready = false; MessageBox.Show("页面未完成保存确认，窗口保持打开。请检查未保存内容后重试。", "未关闭"); }
+            frontendClose = null; frontendCloseId = null; if (!ready) { closing = false; Emit("window.closeCancelled", new { }); return; }
         }
-        if (!initialized || await close.RequestAsync()) { if(acceptance?.Scenario is "closeButton" or "altF4")await RecordClosingAcceptanceAsync(); mayClose = true; await CleanupAsync(); Close(); }
-        else { MessageBox.Show("保存或备份失败，窗口保持打开。请检查磁盘与权限后重试。", "未关闭"); close.CancelClose(); closing = false;Emit("window.closeCancelled",new{}); }
+        if (!initialized || await close.RequestAsync()) { if (acceptance?.Scenario is "closeButton" or "altF4") await RecordClosingAcceptanceAsync(); mayClose = true; await CleanupAsync(); Close(); }
+        else { MessageBox.Show("保存或备份失败，窗口保持打开。请检查磁盘与权限后重试。", "未关闭"); close.CancelClose(); closing = false; Emit("window.closeCancelled", new { }); }
     }
     private TaskCompletionSource? resourcesDrained;
     private async Task CleanupAsync()
@@ -241,8 +241,8 @@ public sealed partial class MainWindow : Window
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         lifetime.Cancel();
         // Resource continuations and deferrals must finish before disposing their document streams and WebView.
-        if(Volatile.Read(ref resourceCompleted)!=Volatile.Read(ref resourceStarted)){resourcesDrained=new(TaskCreationOptions.RunContinuationsAsynchronously);await resourcesDrained.Task;}
-        acceptanceWriter?.Dispose(); bridge.Dispose(); await loopback.DisposeAsync(); providerProxy.Dispose(); await ocr.DisposeAsync();files.Dispose(); await storage.DisposeAsync(); documents.Dispose(); databaseLease?.Dispose(); web.Dispose(); lifetime.Dispose();
+        if (Volatile.Read(ref resourceCompleted) != Volatile.Read(ref resourceStarted)) { resourcesDrained = new(TaskCreationOptions.RunContinuationsAsynchronously); await resourcesDrained.Task; }
+        acceptanceWriter?.Dispose(); bridge.Dispose(); await loopback.DisposeAsync(); providerProxy.Dispose(); await ocr.DisposeAsync(); files.Dispose(); await storage.DisposeAsync(); documents.Dispose(); databaseLease?.Dispose(); web.Dispose(); lifetime.Dispose();
     }
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
     {
@@ -267,7 +267,7 @@ public sealed partial class MainWindow : Window
 
     private nint DisplayMessage(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
     {
-        if (acceptance!=null && message is 0xa1 or 0xa2 or 0xa3 or 0x112) windowMessages.Add($"{message:X}:{wParam:X}");
+        if (acceptance != null && message is 0xa1 or 0xa2 or 0xa3 or 0x112) windowMessages.Add($"{message:X}:{wParam:X}");
         if (message == WM_GETMINMAXINFO)
         {
             var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);

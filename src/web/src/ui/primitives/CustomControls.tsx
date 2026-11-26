@@ -21,7 +21,7 @@ export const CustomSwitch: React.FC<CustomSwitchProps> = ({
         aria-label={ariaLabel}
         checked={checked}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={e => onChange(e.target.checked)}
         className="peer absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
       />
       <span
@@ -60,7 +60,7 @@ export const CustomCheckbox: React.FC<CustomCheckboxProps> = ({
         aria-label={ariaLabel}
         checked={checked}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={e => onChange(e.target.checked)}
         className="peer absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
       />
       <span
@@ -107,7 +107,7 @@ export const CustomColorSwatch: React.FC<CustomColorSwatchProps> = ({
         type="color"
         aria-label={ariaLabel}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={e => onChange(e.target.value)}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer rounded-full"
       />
     </span>

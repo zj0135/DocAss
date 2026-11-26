@@ -1,0 +1,14 @@
+# Prettier ignore
+node_modules
+dist
+bin
+obj
+*.lock
+pnpm-lock.yaml
+packages.lock.json
+
+# Generated code
+src/web/src/contracts/validators.js
+src/web/src/contracts/validators.d.ts
+src/web/src/contracts/types.ts
+src/host/DocAss.Host/Contracts/Models.g.cs

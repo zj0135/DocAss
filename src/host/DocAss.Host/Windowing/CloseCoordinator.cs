@@ -1,6 +1,6 @@
 namespace DocAss.Host.Windowing;
 
-public sealed class CloseCoordinator(Func<Task> drainAndSave)
+public sealed class CloseCoordinator(Func<Task> drainAndSave) : ICloseCoordinator
 {
     public string State { get; private set; } = "open";
     private Task<bool>? current;

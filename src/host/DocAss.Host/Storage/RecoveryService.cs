@@ -33,7 +33,7 @@ public static class RecoveryService
         try
         {
             using (var file = new FileStream(candidate, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) file.Flush(true);
-            using (var file = new FileStream(marker, FileMode.Create, FileAccess.Write, FileShare.None)) { var bytes=System.Text.Encoding.UTF8.GetBytes(archive); file.Write(bytes); file.Flush(true); }
+            using (var file = new FileStream(marker, FileMode.Create, FileAccess.Write, FileShare.None)) { var bytes = System.Text.Encoding.UTF8.GetBytes(archive); file.Write(bytes); file.Flush(true); }
             // Retain the original database and its journal for diagnosis instead of silently clearing it.
             foreach (var suffix in new[] { "-wal", "-shm" }) if (File.Exists(databasePath + suffix)) { File.Move(databasePath + suffix, archive + suffix); moved.Add(suffix); }
             if (File.Exists(databasePath)) File.Replace(candidate, databasePath, archive); else File.Move(candidate, databasePath);
@@ -42,7 +42,7 @@ public static class RecoveryService
         }
         catch
         {
-            if (!replaced) { foreach(var suffix in moved) File.Move(archive+suffix,databasePath+suffix); if(File.Exists(marker))File.Delete(marker); }
+            if (!replaced) { foreach (var suffix in moved) File.Move(archive + suffix, databasePath + suffix); if (File.Exists(marker)) File.Delete(marker); }
             throw;
         }
         finally { if (File.Exists(candidate)) File.Delete(candidate); }

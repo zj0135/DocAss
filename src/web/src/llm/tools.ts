@@ -1,44 +1,389 @@
 import schema from '../../../shared/contracts.schema.json';
-import {validate} from '../contracts';
-import type {PageText,Box,Mutation} from '../contracts';
-import type {DocSession} from '../state/DocSession';
-import type {AppServices} from '../services/AppServices';
-import type {DocumentPool} from '../documents/DocumentPool';
-import type {PasswordPrompt} from '../documents/types';
-import {textAnnotation} from '../annotations/model';
-import {snap} from '../text/model';
-import {searchPage} from '../text/search';
-import {AnchorRegistry,quoteRanges} from './citations';
-import {cropPage,imageData} from './images';
-import type {ToolSpec,ToolOutput} from './types';
-export type DocumentAccess={session:DocSession;services:AppServices;pool:DocumentPool;prompt:PasswordPrompt};
+import { validate } from '../contracts';
+import type { PageText, Box, Mutation } from '../contracts';
+import type { DocSession } from '../state/DocSession';
+import type { AppServices } from '../services/AppServices';
+import type { DocumentPool } from '../documents/DocumentPool';
+import type { PasswordPrompt } from '../documents/types';
+import { textAnnotation } from '../annotations/model';
+import { snap } from '../text/model';
+import { searchPage } from '../text/search';
+import { AnchorRegistry, quoteRanges } from './citations';
+import { cropPage, imageData } from './images';
+import type { ToolSpec, ToolOutput } from './types';
+export type DocumentAccess = {
+  session: DocSession;
+  services: AppServices;
+  pool: DocumentPool;
+  prompt: PasswordPrompt;
+};
 export class DocumentTools {
- readonly anchors:AnchorRegistry;private cursors=new Map<string,{kind:string;signature:string;offset:number;revision?:string}>();private effects=new Map<string,Promise<{text:string;annotationIds?:string[]}>>();private images=0;
- readonly access:DocumentAccess;readonly runId:string;readonly conversationId:string;readonly messageId:()=>string;readonly imageAllowed:boolean;constructor(access:DocumentAccess,runId:string,conversationId:string,messageId:()=>string,imageAllowed:boolean){Object.assign(this,{access,runId,conversationId,messageId,imageAllowed});this.access=access;this.runId=runId;this.conversationId=conversationId;this.messageId=messageId;this.imageAllowed=imageAllowed;this.anchors=new AnchorRegistry(access.session.handle.docHash);}
- private page(page:number){if(!Number.isInteger(page)||page<1||page>this.access.session.store.getState().pageCount)throw Error('页码超出当前文档范围');}
- async text(page:number,signal:AbortSignal,recognize=false):Promise<PageText>{this.page(page);signal.throwIfAborted();const {session,services}=this.access;let value=session.text?await session.text.getPage(page,signal):await services.text.getPage(session.handle.docId,page,signal);if(recognize&&value.quality==='unavailable'&&session.text)value=await session.text.recognizeForRun(page,signal);signal.throwIfAborted();return value;}
- private coverage(){const {session}=this.access;const states=session.text?.store.getState().pages??{};return {ready:Object.values(states).filter(p=>p.phase==='ready'||p.phase==='empty').length,total:session.store.getState().pageCount};}
- private cursor(kind:string,signature:string,offset:number,revision?:string){const token=crypto.randomUUID();this.cursors.set(token,{kind,signature,offset,revision});return token;}
- private offset(kind:string,signature:string,token:unknown,revision?:string){if(!token)return 0;const value=this.cursors.get(String(token));if(!value||value.kind!==kind||value.signature!==signature||value.revision!==revision)throw Error('游标无效或文字已变化，请重新读取');return value.offset;}
- specs():ToolSpec[]{const entries=[['get_document_info','ToolGetInfo','读取当前文档元信息与已就绪范围'],['get_page_text','ToolPageText','分批读取1到5页，最多20000字符；cursor继续，必要时识别'],['search_document','ToolSearch','搜索已就绪文字，最多50个命中，返回可信anchorToken与覆盖范围'],['get_page_image','ToolPageImage','读取页面原图，最长边2048'],['get_region_image','ToolRegionImage','读取页面内矩形原图'],['list_annotations','ToolAnnotations','分页读取当前文档标注'],['create_annotation','ToolCreateAnnotation','用户要求时用唯一引文或可信anchorToken创建可撤销高亮或便签']] as const;return entries.map(([name,contract,description])=>({name,description,parameters:JSON.parse(JSON.stringify(schema.$defs[contract]).replace(/\{"\$ref":"#\/\$defs\/Box"\}/g,JSON.stringify(schema.$defs.Box))),execute:(id,args,signal)=>{validate(contract,args);return this.execute(name,id,args,signal);}}));}
- private async execute(name:string,id:string,args:Record<string,unknown>,signal:AbortSignal):Promise<ToolOutput>{
-  signal.throwIfAborted();const {session,pool,prompt}=this.access;const json=(v:unknown)=>({text:JSON.stringify(v)});
-  if(name==='get_document_info'){const lease=await pool.acquire(session.handle.docId,prompt,signal);try{return json({title:session.handle.fileName,pageCount:lease.document.pageCount,outline:(await lease.document.getOutline()).slice(0,50),coverage:this.coverage()});}finally{lease.release();}}
-  if(name==='get_page_text'){const from=Number(args.from),to=Number(args.to);this.page(from);this.page(to);if(to<from||to-from>=5)throw Error('一次最多读取5页');const values:PageText[]=[];for(let p=from;p<=to;p++)values.push(await this.text(p,signal,true));const revision=values.map(t=>t.textRevision).join(':'),signature=`${from}:${to}`,offset=this.offset(name,signature,args.cursor,revision),max=Number(args.maxChars??20000);let consumed=0,skip=offset;const pages=[];for(const text of values){if(skip>=text.text.length){skip-=text.text.length;continue;}let take=Math.min(max-consumed,text.text.length-skip);if(take<=0)break;take=snap(text.text,skip+take)-skip;if(take<=0)throw Error('maxChars is too small for the next grapheme');const range={start:skip,end:skip+take};pages.push({page:text.page,text:text.text.slice(skip,skip+take),textRevision:text.textRevision,ranges:[range],anchorToken:this.anchors.issue(text,[range])});consumed+=take;skip=0;}const total=values.reduce((n,t)=>n+t.text.length,0);return json({pages,coverage:this.coverage(),...(offset+consumed<total?{nextCursor:this.cursor(name,signature,offset+consumed,revision)}:{})});}
-  if(name==='search_document'){const query=String(args.query),signature=query+':'+(session.text?.store.getState().version??0),offset=this.offset(name,signature,args.cursor),max=Number(args.maxHits??50),hits=[];let index=0,searched=0,unavailable=0,more=false;for(let p=1;p<=session.store.getState().pageCount;p++){const text=await this.text(p,signal);if(text.quality==='unavailable'){unavailable++;continue;}searched++;for(const hit of searchPage(text,query)){if(index++<offset)continue;if(hits.length===max){more=true;break;}hits.push({page:p,ranges:hit.ranges,textRevision:text.textRevision,quote:hit.ranges.map(r=>text.text.slice(r.start,r.end)).join(''),snippet:text.text.slice(Math.max(0,hit.ranges[0].start-80),hit.ranges.at(-1)!.end+80),anchorToken:this.anchors.issue(text,hit.ranges)});}if(more)break;}return json({hits,coverage:{searched,unavailable,total:session.store.getState().pageCount},...(more?{nextCursor:this.cursor(name,signature,offset+hits.length)}:{})});}
-  if(name==='get_page_image'||name==='get_region_image'){if(!this.imageAllowed)throw Error('当前提供方或模型不支持图像，请使用文字工具');if(this.images>=4)throw Error('每次生成最多读取4张图像');const page=Number(args.page);this.page(page);const lease=await pool.acquire(session.handle.docId,prompt,signal);try{const result=await cropPage(lease.document,page,args.rect as Box|undefined,Number(args.maxEdge??2048),signal);this.images++;const services=this.access.services,upload=await services.attachments.begin(session.handle.docId);await services.attachments.upload(session.handle.docId,upload,result.blob,signal);signal.throwIfAborted();const attachmentId=await services.attachments.commit(session.handle.docId,upload);return {...json({page,rect:result.rect,attachmentId}),attachment:{type:'attachment',attachmentId,page,rect:result.rect,docHash:session.handle.docHash,scale:result.scale},image:{data:await imageData(result.blob),mimeType:'image/png'}};}finally{lease.release();}}
-  if(name==='list_annotations'){if(args.page)this.page(Number(args.page));const signature=JSON.stringify([args.page,args.type]),offset=this.offset(name,signature,args.cursor),all=session.store.getState().annotations.filter(a=>(!args.page||a.page===args.page)&&(!args.type||a.type===args.type));return json({annotations:all.slice(offset,offset+50),...(all.length>offset+50?{nextCursor:this.cursor(name,signature,offset+50)}:{})});}
-  if(name==='create_annotation'){const existing=this.effects.get(id);if(existing)return existing;const task=this.create(id,args,signal);this.effects.set(id,task);try{return await task;}catch(e){this.effects.delete(id);throw e;}}
-  throw Error('不支持的文档工具');
- }
- private async create(wireId:string,args:Record<string,unknown>,signal:AbortSignal){const {session}=this.access;if(session.handle.access!=='edit')throw Error('只读文档不能创建标注');const text=await this.text(Number(args.page),signal,true),quote=String(args.quote),ranges=this.anchors.resolve(text,quote,args.anchorToken as string|undefined);
-  if(!ranges){const candidates=quoteRanges(text,quote).map(r=>({page:text.page,range:r,anchorToken:this.anchors.issue(text,[r])}));return {text:JSON.stringify({status:candidates.length?'ambiguous':'notFound',candidates})};}
-  const old=session.store.getState().annotations.find(a=>a.llmRef&&a.page===text.page&&a.type===args.type&&a.textAnchor?.quote===quote&&JSON.stringify(a.textAnchor.ranges)===JSON.stringify(ranges));if(old)return {text:JSON.stringify({status:'alreadyExists',annotationIds:[old.id]}),annotationIds:[old.id]};
-  const groupId=crypto.randomUUID(),annotationIds:string[]=[],mutations:Mutation[]=[];
-  for(const range of ranges){const value=textAnnotation(session.handle.docHash,text,range,'highlight','AI',{color:'#facc15',opacity:.35,strokeWidth:2},groupId);if(!value)throw Error('引文没有可靠几何，未创建标注');if(args.type==='note'){value.type='note';value.anchor=[value.rect[0],value.rect[1]];}value.contents=String(args.comment??'');value.llmRef={conversationId:this.conversationId,messageId:this.messageId(),runId:this.runId};annotationIds.push(value.id);mutations.push({type:'annotation.put',value});}
-  const toolCallId=await stableCallId(this.runId,wireId);mutations.push({type:'effect.put',value:{conversationId:this.conversationId,runId:this.runId,toolCallId,annotationIds,result:JSON.stringify({status:'created',groupId,annotationIds})}});
-  signal.throwIfAborted();await session.commit({type:'batch',mutations},signal);return {text:JSON.stringify({status:'created',groupId,annotationIds}),annotationIds};
- }
- dispose(){this.anchors.clear();this.cursors.clear();}
+  readonly anchors: AnchorRegistry;
+  private cursors = new Map<
+    string,
+    { kind: string; signature: string; offset: number; revision?: string }
+  >();
+  private effects = new Map<string, Promise<{ text: string; annotationIds?: string[] }>>();
+  private images = 0;
+  readonly access: DocumentAccess;
+  readonly runId: string;
+  readonly conversationId: string;
+  readonly messageId: () => string;
+  readonly imageAllowed: boolean;
+  constructor(
+    access: DocumentAccess,
+    runId: string,
+    conversationId: string,
+    messageId: () => string,
+    imageAllowed: boolean,
+  ) {
+    Object.assign(this, { access, runId, conversationId, messageId, imageAllowed });
+    this.access = access;
+    this.runId = runId;
+    this.conversationId = conversationId;
+    this.messageId = messageId;
+    this.imageAllowed = imageAllowed;
+    this.anchors = new AnchorRegistry(access.session.handle.docHash);
+  }
+  private page(page: number) {
+    if (
+      !Number.isInteger(page) ||
+      page < 1 ||
+      page > this.access.session.store.getState().pageCount
+    )
+      throw Error('页码超出当前文档范围');
+  }
+  async text(page: number, signal: AbortSignal, recognize = false): Promise<PageText> {
+    this.page(page);
+    signal.throwIfAborted();
+    const { session, services } = this.access;
+    let value = session.text
+      ? await session.text.getPage(page, signal)
+      : await services.text.getPage(session.handle.docId, page, signal);
+    if (recognize && value.quality === 'unavailable' && session.text)
+      value = await session.text.recognizeForRun(page, signal);
+    signal.throwIfAborted();
+    return value;
+  }
+  private coverage() {
+    const { session } = this.access;
+    const states = session.text?.store.getState().pages ?? {};
+    return {
+      ready: Object.values(states).filter(p => p.phase === 'ready' || p.phase === 'empty').length,
+      total: session.store.getState().pageCount,
+    };
+  }
+  private cursor(kind: string, signature: string, offset: number, revision?: string) {
+    const token = crypto.randomUUID();
+    this.cursors.set(token, { kind, signature, offset, revision });
+    return token;
+  }
+  private offset(kind: string, signature: string, token: unknown, revision?: string) {
+    if (!token) return 0;
+    const value = this.cursors.get(String(token));
+    if (
+      !value ||
+      value.kind !== kind ||
+      value.signature !== signature ||
+      value.revision !== revision
+    )
+      throw Error('游标无效或文字已变化，请重新读取');
+    return value.offset;
+  }
+  specs(): ToolSpec[] {
+    const entries = [
+      ['get_document_info', 'ToolGetInfo', '读取当前文档元信息与已就绪范围'],
+      ['get_page_text', 'ToolPageText', '分批读取1到5页，最多20000字符；cursor继续，必要时识别'],
+      [
+        'search_document',
+        'ToolSearch',
+        '搜索已就绪文字，最多50个命中，返回可信anchorToken与覆盖范围',
+      ],
+      ['get_page_image', 'ToolPageImage', '读取页面原图，最长边2048'],
+      ['get_region_image', 'ToolRegionImage', '读取页面内矩形原图'],
+      ['list_annotations', 'ToolAnnotations', '分页读取当前文档标注'],
+      [
+        'create_annotation',
+        'ToolCreateAnnotation',
+        '用户要求时用唯一引文或可信anchorToken创建可撤销高亮或便签',
+      ],
+    ] as const;
+    return entries.map(([name, contract, description]) => ({
+      name,
+      description,
+      parameters: JSON.parse(
+        JSON.stringify(schema.$defs[contract]).replace(
+          /\{"\$ref":"#\/\$defs\/Box"\}/g,
+          JSON.stringify(schema.$defs.Box),
+        ),
+      ),
+      execute: (id, args, signal) => {
+        validate(contract, args);
+        return this.execute(name, id, args, signal);
+      },
+    }));
+  }
+  private async execute(
+    name: string,
+    id: string,
+    args: Record<string, unknown>,
+    signal: AbortSignal,
+  ): Promise<ToolOutput> {
+    signal.throwIfAborted();
+    const { session, pool, prompt } = this.access;
+    const json = (v: unknown) => ({ text: JSON.stringify(v) });
+    if (name === 'get_document_info') {
+      const lease = await pool.acquire(session.handle.docId, prompt, signal);
+      try {
+        return json({
+          title: session.handle.fileName,
+          pageCount: lease.document.pageCount,
+          outline: (await lease.document.getOutline()).slice(0, 50),
+          coverage: this.coverage(),
+        });
+      } finally {
+        lease.release();
+      }
+    }
+    if (name === 'get_page_text') {
+      const from = Number(args.from),
+        to = Number(args.to);
+      this.page(from);
+      this.page(to);
+      if (to < from || to - from >= 5) throw Error('一次最多读取5页');
+      const values: PageText[] = [];
+      for (let p = from; p <= to; p++) values.push(await this.text(p, signal, true));
+      const revision = values.map(t => t.textRevision).join(':'),
+        signature = `${from}:${to}`,
+        offset = this.offset(name, signature, args.cursor, revision),
+        max = Number(args.maxChars ?? 20000);
+      let consumed = 0,
+        skip = offset;
+      const pages = [];
+      for (const text of values) {
+        if (skip >= text.text.length) {
+          skip -= text.text.length;
+          continue;
+        }
+        let take = Math.min(max - consumed, text.text.length - skip);
+        if (take <= 0) break;
+        take = snap(text.text, skip + take) - skip;
+        if (take <= 0) throw Error('maxChars is too small for the next grapheme');
+        const range = { start: skip, end: skip + take };
+        pages.push({
+          page: text.page,
+          text: text.text.slice(skip, skip + take),
+          textRevision: text.textRevision,
+          ranges: [range],
+          anchorToken: this.anchors.issue(text, [range]),
+        });
+        consumed += take;
+        skip = 0;
+      }
+      const total = values.reduce((n, t) => n + t.text.length, 0);
+      return json({
+        pages,
+        coverage: this.coverage(),
+        ...(offset + consumed < total
+          ? { nextCursor: this.cursor(name, signature, offset + consumed, revision) }
+          : {}),
+      });
+    }
+    if (name === 'search_document') {
+      const query = String(args.query),
+        signature = query + ':' + (session.text?.store.getState().version ?? 0),
+        offset = this.offset(name, signature, args.cursor),
+        max = Number(args.maxHits ?? 50),
+        hits = [];
+      let index = 0,
+        searched = 0,
+        unavailable = 0,
+        more = false;
+      for (let p = 1; p <= session.store.getState().pageCount; p++) {
+        const text = await this.text(p, signal);
+        if (text.quality === 'unavailable') {
+          unavailable++;
+          continue;
+        }
+        searched++;
+        for (const hit of searchPage(text, query)) {
+          if (index++ < offset) continue;
+          if (hits.length === max) {
+            more = true;
+            break;
+          }
+          hits.push({
+            page: p,
+            ranges: hit.ranges,
+            textRevision: text.textRevision,
+            quote: hit.ranges.map(r => text.text.slice(r.start, r.end)).join(''),
+            snippet: text.text.slice(
+              Math.max(0, hit.ranges[0].start - 80),
+              hit.ranges.at(-1)!.end + 80,
+            ),
+            anchorToken: this.anchors.issue(text, hit.ranges),
+          });
+        }
+        if (more) break;
+      }
+      return json({
+        hits,
+        coverage: { searched, unavailable, total: session.store.getState().pageCount },
+        ...(more ? { nextCursor: this.cursor(name, signature, offset + hits.length) } : {}),
+      });
+    }
+    if (name === 'get_page_image' || name === 'get_region_image') {
+      if (!this.imageAllowed) throw Error('当前提供方或模型不支持图像，请使用文字工具');
+      if (this.images >= 4) throw Error('每次生成最多读取4张图像');
+      const page = Number(args.page);
+      this.page(page);
+      const lease = await pool.acquire(session.handle.docId, prompt, signal);
+      try {
+        const result = await cropPage(
+          lease.document,
+          page,
+          args.rect as Box | undefined,
+          Number(args.maxEdge ?? 2048),
+          signal,
+        );
+        this.images++;
+        const services = this.access.services,
+          upload = await services.attachments.begin(session.handle.docId);
+        await services.attachments.upload(session.handle.docId, upload, result.blob, signal);
+        signal.throwIfAborted();
+        const attachmentId = await services.attachments.commit(session.handle.docId, upload);
+        return {
+          ...json({ page, rect: result.rect, attachmentId }),
+          attachment: {
+            type: 'attachment',
+            attachmentId,
+            page,
+            rect: result.rect,
+            docHash: session.handle.docHash,
+            scale: result.scale,
+          },
+          image: { data: await imageData(result.blob), mimeType: 'image/png' },
+        };
+      } finally {
+        lease.release();
+      }
+    }
+    if (name === 'list_annotations') {
+      if (args.page) this.page(Number(args.page));
+      const signature = JSON.stringify([args.page, args.type]),
+        offset = this.offset(name, signature, args.cursor),
+        all = session.store
+          .getState()
+          .annotations.filter(
+            a => (!args.page || a.page === args.page) && (!args.type || a.type === args.type),
+          );
+      return json({
+        annotations: all.slice(offset, offset + 50),
+        ...(all.length > offset + 50
+          ? { nextCursor: this.cursor(name, signature, offset + 50) }
+          : {}),
+      });
+    }
+    if (name === 'create_annotation') {
+      const existing = this.effects.get(id);
+      if (existing) return existing;
+      const task = this.create(id, args, signal);
+      this.effects.set(id, task);
+      try {
+        return await task;
+      } catch (e) {
+        this.effects.delete(id);
+        throw e;
+      }
+    }
+    throw Error('不支持的文档工具');
+  }
+  private async create(wireId: string, args: Record<string, unknown>, signal: AbortSignal) {
+    const { session } = this.access;
+    if (session.handle.access !== 'edit') throw Error('只读文档不能创建标注');
+    const text = await this.text(Number(args.page), signal, true),
+      quote = String(args.quote),
+      ranges = this.anchors.resolve(text, quote, args.anchorToken as string | undefined);
+    if (!ranges) {
+      const candidates = quoteRanges(text, quote).map(r => ({
+        page: text.page,
+        range: r,
+        anchorToken: this.anchors.issue(text, [r]),
+      }));
+      return {
+        text: JSON.stringify({ status: candidates.length ? 'ambiguous' : 'notFound', candidates }),
+      };
+    }
+    const old = session.store
+      .getState()
+      .annotations.find(
+        a =>
+          a.llmRef &&
+          a.page === text.page &&
+          a.type === args.type &&
+          a.textAnchor?.quote === quote &&
+          JSON.stringify(a.textAnchor.ranges) === JSON.stringify(ranges),
+      );
+    if (old)
+      return {
+        text: JSON.stringify({ status: 'alreadyExists', annotationIds: [old.id] }),
+        annotationIds: [old.id],
+      };
+    const groupId = crypto.randomUUID(),
+      annotationIds: string[] = [],
+      mutations: Mutation[] = [];
+    for (const range of ranges) {
+      const value = textAnnotation(
+        session.handle.docHash,
+        text,
+        range,
+        'highlight',
+        'AI',
+        { color: '#facc15', opacity: 0.35, strokeWidth: 2 },
+        groupId,
+      );
+      if (!value) throw Error('引文没有可靠几何，未创建标注');
+      if (args.type === 'note') {
+        value.type = 'note';
+        value.anchor = [value.rect[0], value.rect[1]];
+      }
+      value.contents = String(args.comment ?? '');
+      value.llmRef = {
+        conversationId: this.conversationId,
+        messageId: this.messageId(),
+        runId: this.runId,
+      };
+      annotationIds.push(value.id);
+      mutations.push({ type: 'annotation.put', value });
+    }
+    const toolCallId = await stableCallId(this.runId, wireId);
+    mutations.push({
+      type: 'effect.put',
+      value: {
+        conversationId: this.conversationId,
+        runId: this.runId,
+        toolCallId,
+        annotationIds,
+        result: JSON.stringify({ status: 'created', groupId, annotationIds }),
+      },
+    });
+    signal.throwIfAborted();
+    await session.commit({ type: 'batch', mutations }, signal);
+    return { text: JSON.stringify({ status: 'created', groupId, annotationIds }), annotationIds };
+  }
+  dispose() {
+    this.anchors.clear();
+    this.cursors.clear();
+  }
 }
-export async function stableCallId(runId:string,wireId:string){const h=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(runId+':'+wireId))),v=>v.toString(16).padStart(2,'0')).join('').slice(0,32);return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;}
+export async function stableCallId(runId: string, wireId: string) {
+  const h = Array.from(
+    new Uint8Array(
+      await crypto.subtle.digest('SHA-256', new TextEncoder().encode(runId + ':' + wireId)),
+    ),
+    v => v.toString(16).padStart(2, '0'),
+  )
+    .join('')
+    .slice(0, 32);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}

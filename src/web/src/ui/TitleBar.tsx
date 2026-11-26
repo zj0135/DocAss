@@ -53,7 +53,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
       {/* Middle: Tab Strip */}
       <div className="flex items-center space-x-1.5 flex-1 overflow-x-auto no-scrollbar max-w-[calc(100vw-360px)]">
-        {tabs.map((tab) => {
+        {tabs.map(tab => {
           const isActive = tab.id === activeTabId;
           const isPdf = tab.kind === 'pdf' || tab.kind === 'scanned-pdf';
 
@@ -86,9 +86,11 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
               {/* Close Button */}
               <button
-                onClick={(e) => onCloseTab(tab.id, e)}
+                onClick={e => onCloseTab(tab.id, e)}
                 className={`ml-1.5 p-0.5 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-opacity ${
-                  isActive ? 'opacity-70 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-80'
+                  isActive
+                    ? 'opacity-70 group-hover:opacity-100'
+                    : 'opacity-0 group-hover:opacity-80'
                 }`}
                 title="关闭标签页 (Ctrl+W)"
               >

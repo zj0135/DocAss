@@ -46,7 +46,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
         className="animate-surface-in w-[400px] max-w-full bg-white border border-slate-200/90 rounded-2xl shadow-[0_24px_48px_-12px_rgba(15,23,42,0.22)] p-5 space-y-4"
       >
         <div className="flex items-start gap-3">
@@ -84,9 +84,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             autoFocus
             onClick={onConfirm}
             className={`px-4 py-1.5 rounded-xl text-[13px] font-medium text-white shadow-xs transition-colors ${
-              tone === 'danger'
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-amber-600 hover:bg-amber-700'
+              tone === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
             }`}
           >
             {confirmLabel}

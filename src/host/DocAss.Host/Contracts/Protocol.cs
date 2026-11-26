@@ -25,7 +25,9 @@ public static class Json
         JsonValueKind.Array => "[" + string.Join(",", value.EnumerateArray().Select(Canonical)) + "]",
         JsonValueKind.Number => Number(value.GetDouble()),
         JsonValueKind.String => Quote(value.GetString()!),
-        JsonValueKind.True => "true", JsonValueKind.False => "false", JsonValueKind.Null => "null",
+        JsonValueKind.True => "true",
+        JsonValueKind.False => "false",
+        JsonValueKind.Null => "null",
         _ => throw new AppException("INVALID_PAYLOAD", "不支持的 JSON 值")
     };
     private static string Number(double n)
@@ -50,8 +52,13 @@ public static class Json
             var c = value[i];
             switch (c)
             {
-                case '"': output.Append("\\\""); break; case '\\': output.Append("\\\\"); break;
-                case '\b': output.Append("\\b"); break; case '\f': output.Append("\\f"); break; case '\n': output.Append("\\n"); break; case '\r': output.Append("\\r"); break; case '\t': output.Append("\\t"); break;
+                case '"': output.Append("\\\""); break;
+                case '\\': output.Append("\\\\"); break;
+                case '\b': output.Append("\\b"); break;
+                case '\f': output.Append("\\f"); break;
+                case '\n': output.Append("\\n"); break;
+                case '\r': output.Append("\\r"); break;
+                case '\t': output.Append("\\t"); break;
                 default:
                     if (char.IsHighSurrogate(c) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1])) { output.Append(c).Append(value[++i]); }
                     else if (c < 0x20 || char.IsSurrogate(c)) output.Append("\\u").Append(((int)c).ToString("x4"));
@@ -125,7 +132,8 @@ public static class Contract
                 if (schema.TryGetProperty("maxLength", out var length)) Require(text.EnumerateRunes().Count() <= length.GetInt32());
                 if (schema.TryGetProperty("pattern", out var pattern)) Require(Regex.IsMatch(text, pattern.GetString()!, RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)));
                 break;
-            case "integer": case "number":
+            case "integer":
+            case "number":
                 Require(value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out _));
                 var number = value.GetDouble(); Require(double.IsFinite(number));
                 if (type.GetString() == "integer") Require(number == Math.Truncate(number));
@@ -146,20 +154,24 @@ public static class Contract
             for (var i = 0; i < 4; i++)
             {
                 var j = (i + 1) % 4; var k = (i + 2) % 4;
-                Require((a[2*j]-a[2*i])*(a[2*k+1]-a[2*j+1])-(a[2*j+1]-a[2*i+1])*(a[2*k]-a[2*j]) > 0, "四边形必须逆时针且不交叉");
-                Require(a[2*i+1] > a[1] || (a[2*i+1] == a[1] && a[2*i] >= a[0]), "四边形起点不规范");
+                Require((a[2 * j] - a[2 * i]) * (a[2 * k + 1] - a[2 * j + 1]) - (a[2 * j + 1] - a[2 * i + 1]) * (a[2 * k] - a[2 * j]) > 0, "四边形必须逆时针且不交叉");
+                Require(a[2 * i + 1] > a[1] || (a[2 * i + 1] == a[1] && a[2 * i] >= a[0]), "四边形起点不规范");
             }
         }
-        if (name == "Affine") Require(Math.Abs(v[0].GetDouble()*v[3].GetDouble()-v[1].GetDouble()*v[2].GetDouble()) > 1e-12, "仿射矩阵不可逆");
+        if (name == "Affine") Require(Math.Abs(v[0].GetDouble() * v[3].GetDouble() - v[1].GetDouble() * v[2].GetDouble()) > 1e-12, "仿射矩阵不可逆");
         if (name == "TextRange") Require(v.GetProperty("start").GetInt32() < v.GetProperty("end").GetInt32(), "文本范围必须为非空半开区间");
         if (name == "DocHandle") Require(v.GetProperty("docHash").GetString() == v.GetProperty("contentRevision").GetString());
         if (name == "Annotation")
         {
             string[] required = v.GetProperty("type").GetString() switch
             {
-                "highlight" or "underline" => ["quads", "textAnchor"], "note" => ["anchor"],
-                "freetext" => ["text", "fontSize", "fontFamily", "alignment"], "ink" => ["paths", "width"],
-                "rect" => ["strokeWidth"], "arrow" => ["from", "to", "strokeWidth", "endStyle"], _ => []
+                "highlight" or "underline" => ["quads", "textAnchor"],
+                "note" => ["anchor"],
+                "freetext" => ["text", "fontSize", "fontFamily", "alignment"],
+                "ink" => ["paths", "width"],
+                "rect" => ["strokeWidth"],
+                "arrow" => ["from", "to", "strokeWidth", "endStyle"],
+                _ => []
             };
             foreach (var key in required) Require(v.TryGetProperty(key, out _));
             if (v.TryGetProperty("quads", out var quads)) Require(quads.GetArrayLength() > 0);
@@ -183,8 +195,8 @@ public static class Contract
         {
             Require(Uri.TryCreate(v.GetProperty("baseUrl").GetString(), UriKind.Absolute, out var uri));
             Require(uri!.UserInfo == "" && uri.Query == "" && uri.Fragment == "" && (uri.Scheme == "https" || (uri.Scheme == "http" && (uri.Host == "localhost" || uri.Host == "127.0.0.1"))), "提供方地址必须为 HTTPS 或本机 HTTP");
-            var models=v.GetProperty("models").EnumerateArray().Select(m=>m.GetProperty("modelId").GetString()).ToArray();Require(models.Distinct().Count()==models.Length,"模型 ID 不能重复");
-            var raw=v.GetProperty("baseUrl").GetString()!;Require(!raw.Contains('%')&&!raw.Contains('\\')&&!raw.Split('/').Any(s=>s is "." or ".."),"提供方路径不允许转义或父目录");
+            var models = v.GetProperty("models").EnumerateArray().Select(m => m.GetProperty("modelId").GetString()).ToArray(); Require(models.Distinct().Count() == models.Length, "模型 ID 不能重复");
+            var raw = v.GetProperty("baseUrl").GetString()!; Require(!raw.Contains('%') && !raw.Contains('\\') && !raw.Split('/').Any(s => s is "." or ".."), "提供方路径不允许转义或父目录");
         }
     }
 }

@@ -31,7 +31,11 @@ function Workspace() {
   const closeBusy = useRef(false);
   const windowClosing = useRef(false);
   const queuedWindowClose = useRef<string | undefined>(undefined);
-  const [closePrompt, setClosePrompt] = useState<{ ids: string[]; requestId?: string; error: string }>();
+  const [closePrompt, setClosePrompt] = useState<{
+    ids: string[];
+    requestId?: string;
+    error: string;
+  }>();
   const [closingText, setClosingText] = useState('');
   const [opening, setOpening] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -48,7 +52,7 @@ function Workspace() {
         setPassword('');
         setPasswordRequest({ incorrect, resolve, reject });
       }),
-    []
+    [],
   );
   const state = useStore(appStore);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -56,7 +60,11 @@ function Workspace() {
   const [fixturesEnabled, setFixturesEnabled] = useState(!services.capabilities.desktop);
 
   useEffect(() => {
-    if (!fixturesEnabled || (!services.capabilities.desktop && new URLSearchParams(location.search).get('fixture') !== '1')) {
+    if (
+      !fixturesEnabled ||
+      (!services.capabilities.desktop &&
+        new URLSearchParams(location.search).get('fixture') !== '1')
+    ) {
       return;
     }
     Object.defineProperty(window, '__docassResources', {
@@ -75,7 +83,7 @@ function Workspace() {
     let active = true;
     void services
       .bootstrap()
-      .then((data) => {
+      .then(data => {
         if (active) {
           appStore.setState({ settings: data.settings, ready: true });
           setMaximized(data.window.maximized);
@@ -95,7 +103,8 @@ function Workspace() {
     async (initial: OpenResult, signal: AbortSignal) => {
       if (windowClosing.current) {
         if (initial.status !== 'ready') await services.documents.cancelOpen(initial.openId);
-        else if (!sessions.has(initial.handle!.docId)) await services.documents.close(initial.handle!.docId);
+        else if (!sessions.has(initial.handle!.docId))
+          await services.documents.close(initial.handle!.docId);
         return;
       }
       let result = initial;
@@ -124,10 +133,15 @@ function Workspace() {
           if (windowClosing.current) throw new DOMException('已取消', 'AbortError');
           session.store.setState({ pageCount: count });
           sessions.set(handle.docId, session);
-          if (services.capabilities.ocr) session.text = new DocumentText(handle, services, pool, prompt);
+          if (services.capabilities.ocr)
+            session.text = new DocumentText(handle, services, pool, prompt);
           session.chat = new ChatSession({ session, services, pool, prompt });
           await session.chat.load();
-          appStore.setState((s) => ({ tabs: [...s.tabs, handle], activeDocId: handle.docId, error: undefined }));
+          appStore.setState(s => ({
+            tabs: [...s.tabs, handle],
+            activeDocId: handle.docId,
+            error: undefined,
+          }));
           setRecent(await services.documents.recent());
         } catch (e) {
           await pool.close(handle.docId);
@@ -139,7 +153,7 @@ function Workspace() {
         throw e;
       }
     },
-    [services, pool, sessions, prompt]
+    [services, pool, sessions, prompt],
   );
 
   const open = async (file?: File, hash?: string) => {
@@ -153,7 +167,8 @@ function Workspace() {
         : await services.documents.open(file, abort.signal);
       if (result) await adopt(result, abort.signal);
     } catch (e) {
-      if (!abort.signal.aborted && !(e instanceof DOMException && e.name === 'AbortError')) report(e);
+      if (!abort.signal.aborted && !(e instanceof DOMException && e.name === 'AbortError'))
+        report(e);
     } finally {
       setOpening(false);
       openAbort.current = null;
@@ -163,7 +178,7 @@ function Workspace() {
   useEffect(() => {
     let queue = Promise.resolve();
     return services.documents.subscribe(
-      (result) => {
+      result => {
         queue = queue.then(async () => {
           const abort = new AbortController();
           openAbort.current = abort;
@@ -171,14 +186,15 @@ function Workspace() {
           try {
             await adopt(result, abort.signal);
           } catch (e) {
-            if (!abort.signal.aborted && !(e instanceof DOMException && e.name === 'AbortError')) report(e);
+            if (!abort.signal.aborted && !(e instanceof DOMException && e.name === 'AbortError'))
+              report(e);
           } finally {
             openAbort.current = null;
             setOpening(false);
           }
         });
       },
-      (message) => report(new Error(message))
+      message => report(new Error(message)),
     );
   }, [services, adopt]);
 
@@ -195,8 +211,14 @@ function Workspace() {
       let session = sessions.get(handle.docId);
       if (handle.byteLength > 0) {
         await adopt(
-          { status: 'ready', openId: handle.docId, fileName: handle.fileName, handle, pageCount: 1 },
-          new AbortController().signal
+          {
+            status: 'ready',
+            openId: handle.docId,
+            fileName: handle.fileName,
+            handle,
+            pageCount: 1,
+          },
+          new AbortController().signal,
         );
         return;
       }
@@ -213,8 +235,10 @@ function Workspace() {
         }
         sessions.set(handle.docId, session);
       }
-      appStore.setState((current) => ({
-        tabs: current.tabs.some((t) => t.docId === handle.docId) ? current.tabs : [...current.tabs, handle],
+      appStore.setState(current => ({
+        tabs: current.tabs.some(t => t.docId === handle.docId)
+          ? current.tabs
+          : [...current.tabs, handle],
         activeDocId: handle.docId,
         error: undefined,
       }));
@@ -250,9 +274,12 @@ function Workspace() {
           await sessions.get(id)?.close();
           await pool.close(id);
           sessions.delete(id);
-          appStore.setState((s) => ({
-            tabs: s.tabs.filter((t) => t.docId !== id),
-            activeDocId: s.activeDocId === id ? (s.tabs.find((t) => t.docId !== id)?.docId ?? '') : s.activeDocId,
+          appStore.setState(s => ({
+            tabs: s.tabs.filter(t => t.docId !== id),
+            activeDocId:
+              s.activeDocId === id
+                ? (s.tabs.find(t => t.docId !== id)?.docId ?? '')
+                : s.activeDocId,
           }));
         }
       }
@@ -283,9 +310,11 @@ function Workspace() {
         closeTab(state.activeDocId);
       } else if (k === 'tab' && state.tabs.length) {
         e.preventDefault();
-        const index = state.tabs.findIndex((t) => t.docId === state.activeDocId);
+        const index = state.tabs.findIndex(t => t.docId === state.activeDocId);
         appStore.setState({
-          activeDocId: state.tabs[(index + (e.shiftKey ? -1 : 1) + state.tabs.length) % state.tabs.length].docId,
+          activeDocId:
+            state.tabs[(index + (e.shiftKey ? -1 : 1) + state.tabs.length) % state.tabs.length]
+              .docId,
         });
       }
     };
@@ -293,12 +322,10 @@ function Workspace() {
     return () => window.removeEventListener('keydown', key);
   }, [state.activeDocId, state.tabs, settingsOpen, opening]);
 
-  useEffect(() => services.window.onClosing((requestId) => void finishClose([...sessions.keys()], requestId)), [
-    services,
-    sessions,
-    pool,
-    passwordRequest,
-  ]);
+  useEffect(
+    () => services.window.onClosing(requestId => void finishClose([...sessions.keys()], requestId)),
+    [services, sessions, pool, passwordRequest],
+  );
 
   useEffect(
     () =>
@@ -309,12 +336,16 @@ function Workspace() {
         setClosePrompt(undefined);
         setClosingText('');
       }),
-    [services, sessions]
+    [services, sessions],
   );
 
   useEffect(() => {
     const before = (e: BeforeUnloadEvent) => {
-      if ([...sessions.values()].some((s) => s.store.getState().saveState !== 'saved' || s.store.getState().editor)) {
+      if (
+        [...sessions.values()].some(
+          s => s.store.getState().saveState !== 'saved' || s.store.getState().editor,
+        )
+      ) {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -323,7 +354,7 @@ function Workspace() {
     return () => window.removeEventListener('beforeunload', before);
   }, [sessions]);
 
-  const tabs: DocTab[] = state.tabs.map((h) => ({
+  const tabs: DocTab[] = state.tabs.map(h => ({
     id: h.docId,
     docHash: h.docHash,
     title: h.fileName,
@@ -340,14 +371,14 @@ function Workspace() {
     <div
       data-build-stamp={buildStamp}
       className="h-screen w-screen overflow-hidden flex flex-col bg-[#f5f6f8] text-[#1f2329] relative"
-      onDragOver={(e) => {
+      onDragOver={e => {
         e.preventDefault();
         setIsDragOver(true);
       }}
-      onDragLeave={(e) => {
+      onDragLeave={e => {
         if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false);
       }}
-      onDrop={(e) => {
+      onDrop={e => {
         e.preventDefault();
         setIsDragOver(false);
         if (windowClosing.current) return;
@@ -367,7 +398,7 @@ function Workspace() {
         accept=".pdf,.png,.jpg,.jpeg,.bmp"
         multiple
         hidden
-        onChange={(e) => {
+        onChange={e => {
           const files = Array.from(e.target.files ?? []);
           e.target.value = '';
           void (async () => {
@@ -379,7 +410,7 @@ function Workspace() {
       <TitleBar
         tabs={tabs}
         activeTabId={state.activeDocId}
-        onSelectTab={(activeDocId) => appStore.setState({ activeDocId })}
+        onSelectTab={activeDocId => appStore.setState({ activeDocId })}
         onCloseTab={(id, e) => {
           e.stopPropagation();
           void closeTab(id);
@@ -457,7 +488,9 @@ function Workspace() {
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[15px] text-[#1f2329]">尚未关闭：{closePrompt.error}</p>
+                <p className="font-semibold text-[15px] text-[#1f2329]">
+                  尚未关闭：{closePrompt.error}
+                </p>
                 <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
                   修改仍保留在当前窗口中。可取消关闭继续编辑，或重试保存。
                 </p>
@@ -468,8 +501,9 @@ function Workspace() {
                 type="button"
                 className="px-3.5 py-1.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium transition-colors"
                 onClick={() => {
-                  closePrompt.ids.forEach((id) => sessions.get(id)?.cancelClose());
-                  if (closePrompt.requestId) void services.window.closeReady(closePrompt.requestId, false);
+                  closePrompt.ids.forEach(id => sessions.get(id)?.cancelClose());
+                  if (closePrompt.requestId)
+                    void services.window.closeReady(closePrompt.requestId, false);
                   setClosePrompt(undefined);
                 }}
               >
@@ -542,7 +576,9 @@ function Workspace() {
 
           <div
             className={`animate-surface-in relative max-w-lg w-full bg-white/95 backdrop-blur-md rounded-3xl shadow-[0_20px_50px_-14px_rgba(15,23,42,0.12)] border p-9 text-center space-y-6 transition-all duration-200 ${
-              isDragOver ? 'border-blue-500 ring-4 ring-blue-500/15 scale-[1.01]' : 'border-slate-200/90'
+              isDragOver
+                ? 'border-blue-500 ring-4 ring-blue-500/15 scale-[1.01]'
+                : 'border-slate-200/90'
             }`}
           >
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-[0_12px_24px_-6px_rgba(37,99,235,0.45)]">
@@ -550,7 +586,9 @@ function Workspace() {
             </div>
 
             <div>
-              <h1 className="text-[22px] font-bold text-[#1f2329] tracking-tight">欢迎使用 DocAss</h1>
+              <h1 className="text-[22px] font-bold text-[#1f2329] tracking-tight">
+                欢迎使用 DocAss
+              </h1>
               <p className="text-[13.5px] text-slate-500 mt-1.5">工作区中还没有文档</p>
             </div>
 
@@ -575,7 +613,7 @@ function Workspace() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-1.5">
-                {['PDF', 'PNG', 'JPEG', 'BMP'].map((ext) => (
+                {['PDF', 'PNG', 'JPEG', 'BMP'].map(ext => (
                   <span
                     key={ext}
                     className="px-2 py-0.5 rounded-md bg-slate-100/90 text-[10.5px] font-mono font-medium text-slate-500"
@@ -584,7 +622,9 @@ function Workspace() {
                   </span>
                 ))}
               </div>
-              <p className="text-[12px] text-slate-400">支持 PDF、PNG、JPEG、BMP；也可将文件拖到窗口中</p>
+              <p className="text-[12px] text-slate-400">
+                支持 PDF、PNG、JPEG、BMP；也可将文件拖到窗口中
+              </p>
             </div>
 
             {recent.length > 0 && (
@@ -594,7 +634,7 @@ function Workspace() {
                   <span>最近打开</span>
                 </h2>
                 <div className="max-h-48 overflow-auto space-y-1">
-                  {recent.map((item) => (
+                  {recent.map(item => (
                     <button
                       key={item.docHash}
                       type="button"
@@ -617,10 +657,18 @@ function Workspace() {
       {fixturesEnabled && (
         <div className="flex gap-4 justify-center py-2 px-4 bg-[#f5f6f8] border-t border-[#e3e6ea] text-xs text-slate-600 shrink-0">
           <span className="text-slate-400">文档示例</span>
-          <button type="button" className="hover:text-blue-600 font-medium transition-colors" onClick={() => void openFixture('report')}>
+          <button
+            type="button"
+            className="hover:text-blue-600 font-medium transition-colors"
+            onClick={() => void openFixture('report')}
+          >
             打开报告示例
           </button>
-          <button type="button" className="hover:text-blue-600 font-medium transition-colors" onClick={() => void openFixture('contract')}>
+          <button
+            type="button"
+            className="hover:text-blue-600 font-medium transition-colors"
+            onClick={() => void openFixture('contract')}
+          >
             打开合同示例
           </button>
         </div>
@@ -642,7 +690,7 @@ function Workspace() {
         <FoundationSettingsDialog
           services={services}
           initial={state.settings}
-          onSaved={(settings) => appStore.setState({ settings })}
+          onSaved={settings => appStore.setState({ settings })}
           onClose={() => setSettingsOpen(false)}
         />
       )}
@@ -653,7 +701,7 @@ function Workspace() {
             role="dialog"
             aria-label="PDF 密码"
             className="animate-surface-in bg-white border border-slate-200/90 rounded-2xl shadow-[0_24px_48px_-12px_rgba(15,23,42,0.22)] p-6 w-96"
-            onSubmit={(e) => {
+            onSubmit={e => {
               e.preventDefault();
               passwordRequest.resolve(password);
               setPassword('');
@@ -678,7 +726,7 @@ function Workspace() {
               aria-label="文档密码"
               className="settings-input w-full"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
             />
             <div className="flex justify-end gap-2.5 mt-4 text-sm">
               <button
@@ -715,7 +763,12 @@ function SessionView({ session, services }: { session: DocSession; services: App
       mutations: [
         {
           type: 'conversation.put',
-          value: { id, title: state.draft || '示例笔记', modelRef: 'fixture', createdAt: new Date().toISOString() },
+          value: {
+            id,
+            title: state.draft || '示例笔记',
+            modelRef: 'fixture',
+            createdAt: new Date().toISOString(),
+          },
         },
       ],
     });
@@ -728,7 +781,11 @@ function SessionView({ session, services }: { session: DocSession; services: App
           <button
             type="button"
             className="mt-2 underline font-medium"
-            onClick={() => void session.reacquire().catch((error) => session.store.setState({ error: String(error) }))}
+            onClick={() =>
+              void session
+                .reacquire()
+                .catch(error => session.store.setState({ error: String(error) }))
+            }
           >
             重新取得编辑权限
           </button>
@@ -772,7 +829,7 @@ function SessionView({ session, services }: { session: DocSession; services: App
           aria-label="示例笔记"
           className="settings-input min-h-24"
           value={state.draft}
-          onChange={(e) => session.store.setState({ draft: e.target.value })}
+          onChange={e => session.store.setState({ draft: e.target.value })}
         />
         <button
           type="button"
@@ -783,19 +840,27 @@ function SessionView({ session, services }: { session: DocSession; services: App
           保存笔记
         </button>
         <p role="status" className="text-xs text-slate-500">
-          {state.saveState === 'saved' ? '已保存' : state.saveState === 'saving' ? '保存中…' : '保存失败'} · 版本{' '}
-          {state.documentRevision}
+          {state.saveState === 'saved'
+            ? '已保存'
+            : state.saveState === 'saving'
+              ? '保存中…'
+              : '保存失败'}{' '}
+          · 版本 {state.documentRevision}
         </p>
         {state.error && (
           <p role="alert" className="text-xs text-red-700">
             {state.error}
-            <button type="button" className="ml-2 underline" onClick={() => void session.retry().catch(() => {})}>
+            <button
+              type="button"
+              className="ml-2 underline"
+              onClick={() => void session.retry().catch(() => {})}
+            >
               重试
             </button>
           </p>
         )}
         <ul className="text-sm space-y-2 overflow-auto">
-          {state.conversations.map((c) => (
+          {state.conversations.map(c => (
             <li key={c.id} className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
               {c.title}
             </li>
@@ -809,7 +874,7 @@ function SessionView({ session, services }: { session: DocSession; services: App
         >
           {state.running ? '停止示例回复' : '生成示例回复'}
         </button>
-        {state.messages.map((message) => (
+        {state.messages.map(message => (
           <div key={message.id}>
             {message.content.map((block, index) =>
               block.type === 'attachment' ? (
@@ -823,7 +888,7 @@ function SessionView({ session, services }: { session: DocSession; services: App
                 <p key={index} className="text-sm">
                   {block.text}
                 </p>
-              ) : null
+              ) : null,
             )}
           </div>
         ))}

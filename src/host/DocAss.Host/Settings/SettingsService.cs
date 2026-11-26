@@ -6,7 +6,7 @@ using DocAss.Host.Storage;
 
 namespace DocAss.Host.Settings;
 
-public sealed class SettingsService(StorageService storage)
+public sealed class SettingsService(StorageService storage) : ISettingsService
 {
     public static JsonElement Defaults => Json.Element(new { revision = 0, author = Environment.UserName, chatWidth = 440, sidePanel = "none", tool = "select", color = "#3B82F6", strokeWidth = 2, opacity = 0.5, window = new { left = 80, top = 80, width = 1280, height = 800, maximized = false } });
     public Task<JsonElement> GetAsync() => storage.Enqueue(() => { using var c = storage.OpenRead(); return Read(c); });

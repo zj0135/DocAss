@@ -42,7 +42,10 @@ export function AnnotationToolbar({
   redoCount: number;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1 px-3 py-1 bg-white border-b text-xs" aria-label="标注工具栏">
+    <div
+      className="flex flex-wrap items-center gap-1 px-3 py-1 bg-white border-b text-xs"
+      aria-label="标注工具栏"
+    >
       {tools.map(([id, label]) => (
         <button
           key={id}
@@ -63,7 +66,7 @@ export function AnnotationToolbar({
           aria-label="工具颜色"
           type="color"
           value={style.color}
-          onChange={(e) => setStyle({ color: e.target.value })}
+          onChange={e => setStyle({ color: e.target.value })}
           className="w-7 h-5 ml-1 align-middle"
         />
       </label>
@@ -72,14 +75,18 @@ export function AnnotationToolbar({
         <select
           aria-label="工具线宽"
           value={style.strokeWidth}
-          onChange={(e) => setStyle({ strokeWidth: Number(e.target.value) })}
+          onChange={e => setStyle({ strokeWidth: Number(e.target.value) })}
         >
-          {[1, 2, 3, 5, 8].map((v) => (
+          {[1, 2, 3, 5, 8].map(v => (
             <option key={v}>{v}</option>
           ))}
         </select>
       </label>
-      <button className="ml-auto px-2 disabled:opacity-40" disabled={disabled || !undoCount} onClick={undo}>
+      <button
+        className="ml-auto px-2 disabled:opacity-40"
+        disabled={disabled || !undoCount}
+        onClick={undo}
+      >
         撤销
       </button>
       <button className="px-2 disabled:opacity-40" disabled={disabled || !redoCount} onClick={redo}>
@@ -104,14 +111,18 @@ export function AnnotationInspector({
   onShowSource?: () => void;
   fail: (e: unknown) => void;
 }) {
-  const update = (changes: Partial<Annotation>) => void session.put({ ...a, ...changes }).catch(fail);
+  const update = (changes: Partial<Annotation>) =>
+    void session.put({ ...a, ...changes }).catch(fail);
   return (
     <div
       className="animate-surface-in absolute top-3 left-1/2 -translate-x-1/2 z-30 max-w-[calc(100%-32px)] flex flex-wrap gap-2.5 items-center px-3.5 py-1.5 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md shadow-[0_12px_32px_-8px_rgba(15,23,42,0.16)] text-[12px] text-[#5f6672]"
       aria-label="标注属性"
     >
       <span className="font-semibold text-[#1f2329] flex items-center gap-1.5 pr-1">
-        <span className="w-2.5 h-2.5 rounded-full inline-block ring-1 ring-black/10" style={{ backgroundColor: a.color }} />
+        <span
+          className="w-2.5 h-2.5 rounded-full inline-block ring-1 ring-black/10"
+          style={{ backgroundColor: a.color }}
+        />
         {tools.find(([id]) => id === a.type)?.[1]} · {a.author}
       </span>
 
@@ -122,7 +133,7 @@ export function AnnotationInspector({
         <CustomColorSwatch
           ariaLabel="标注颜色"
           value={a.color}
-          onChange={(color) => update({ color })}
+          onChange={color => update({ color })}
         />
       </label>
 
@@ -132,8 +143,8 @@ export function AnnotationInspector({
           ariaLabel="标注不透明度"
           size="xs"
           value={String(a.opacity)}
-          onChange={(v) => update({ opacity: Number(v) })}
-          options={[0.2, 0.35, 0.5, 0.75, 1].map((v) => ({
+          onChange={v => update({ opacity: Number(v) })}
+          options={[0.2, 0.35, 0.5, 0.75, 1].map(v => ({
             value: String(v),
             label: `${Math.round(v * 100)}%`,
           }))}
@@ -160,16 +171,18 @@ export function AnnotationInspector({
         </button>
       )}
 
-      {!textType(a) && a.migrationState === 'needsReview' && a.page <= session.store.getState().pageCount && (
-        <button
-          type="button"
-          onClick={() => update({ migrationState: 'confirmed' })}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
-        >
-          <CheckCircle2 className="w-3 h-3" />
-          <span>确认当前位置</span>
-        </button>
-      )}
+      {!textType(a) &&
+        a.migrationState === 'needsReview' &&
+        a.page <= session.store.getState().pageCount && (
+          <button
+            type="button"
+            onClick={() => update({ migrationState: 'confirmed' })}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            <span>确认当前位置</span>
+          </button>
+        )}
 
       {onShowSource && (
         <button
@@ -212,14 +225,20 @@ export function AnnotationEditor({
       cancel();
       return;
     }
-    const value = { ...a, ...(a.type === 'freetext' ? { text: editor.text } : { contents: editor.text }) };
+    const value = {
+      ...a,
+      ...(a.type === 'freetext' ? { text: editor.text } : { contents: editor.text }),
+    };
     session.store.setState({ editor: undefined });
     void session.put(value).catch(fail);
   };
 
   if (a.type === 'note') {
     return (
-      <div className="absolute inset-0 z-30 bg-slate-900/15 backdrop-blur-[1px]" onPointerDown={(e) => e.stopPropagation()}>
+      <div
+        className="absolute inset-0 z-30 bg-slate-900/15 backdrop-blur-[1px]"
+        onPointerDown={e => e.stopPropagation()}
+      >
         <StickyNoteCard
           author={a.author}
           date={a.createdAt.slice(0, 10)}
@@ -227,7 +246,7 @@ export function AnnotationEditor({
           editImmediately
           controlledDraft={editor.text}
           onDraftChange={change}
-          onUpdateContent={(text) => {
+          onUpdateContent={text => {
             change(text);
             session.store.setState({ editor: undefined });
             void session.put({ ...a, contents: text }).catch(fail);
@@ -247,7 +266,7 @@ export function AnnotationEditor({
   return (
     <div
       className="absolute inset-0 z-30 bg-slate-900/20 backdrop-blur-[2px] flex items-start justify-center pt-12"
-      onPointerDown={(e) => e.stopPropagation()}
+      onPointerDown={e => e.stopPropagation()}
     >
       <div
         className="animate-surface-in bg-white border border-slate-200/90 rounded-2xl shadow-[0_24px_48px_-12px_rgba(15,23,42,0.22)] w-[400px] max-w-[calc(100%-32px)] p-5"
@@ -263,10 +282,10 @@ export function AnnotationEditor({
           className="border border-slate-200 rounded-xl p-3 w-full h-28 text-[13px] text-[#1f2329] bg-[#f8fafc] focus:bg-white focus:outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/12 resize-none transition-all"
           maxLength={20000}
           value={editor.text}
-          onChange={(e) => change(e.target.value)}
+          onChange={e => change(e.target.value)}
           onCompositionStart={() => (composing.current = true)}
           onCompositionEnd={() => (composing.current = false)}
-          onKeyDown={(e) => {
+          onKeyDown={e => {
             e.stopPropagation();
             if (e.nativeEvent.isComposing || composing.current) return;
             if (e.key === 'Escape') {
@@ -290,11 +309,14 @@ export function AnnotationEditor({
                 max="96"
                 className="w-14 h-7 border border-slate-200 rounded-lg px-2 text-[#1f2329] focus:outline-hidden focus:border-blue-500"
                 value={a.fontSize}
-                onChange={(e) =>
+                onChange={e =>
                   session.store.setState({
                     editor: {
                       ...editor,
-                      annotation: { ...a, fontSize: Math.max(6, Math.min(96, Number(e.target.value) || 14)) },
+                      annotation: {
+                        ...a,
+                        fontSize: Math.max(6, Math.min(96, Number(e.target.value) || 14)),
+                      },
                     },
                   })
                 }
@@ -304,8 +326,10 @@ export function AnnotationEditor({
               ariaLabel="批注字体"
               size="xs"
               value={a.fontFamily ?? 'sans-serif'}
-              onChange={(v) =>
-                session.store.setState({ editor: { ...editor, annotation: { ...a, fontFamily: v } } })
+              onChange={v =>
+                session.store.setState({
+                  editor: { ...editor, annotation: { ...a, fontFamily: v } },
+                })
               }
               options={[
                 { value: 'sans-serif', label: '无衬线' },
@@ -316,7 +340,7 @@ export function AnnotationEditor({
               ariaLabel="批注对齐"
               size="xs"
               value={a.alignment ?? 'left'}
-              onChange={(v) =>
+              onChange={v =>
                 session.store.setState({
                   editor: {
                     ...editor,

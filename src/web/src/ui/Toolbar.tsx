@@ -117,16 +117,62 @@ export function Toolbar<C extends string = AnnotationColor>({
     icon: React.ReactNode;
     visible?: boolean;
   }[] = [
-    { id: 'select', ariaLabel: '选择工具', title: '选择工具 (V)', icon: <MousePointer2 className="w-4 h-4" /> },
-    { id: 'highlight', ariaLabel: '高亮工具', title: '文字高亮 (H)', icon: <Highlighter className="w-4 h-4" /> },
-    { id: 'underline', ariaLabel: '下划线工具', title: '文字下划线 (U)', icon: <UnderlineIcon className="w-4 h-4" /> },
-    { id: 'note', ariaLabel: '便签工具', title: '便签 (N)', icon: <MessageSquare className="w-4 h-4" /> },
-    { id: 'freetext', ariaLabel: '文字批注工具', title: '文字批注 (T)', icon: <Type className="w-4 h-4" /> },
+    {
+      id: 'select',
+      ariaLabel: '选择工具',
+      title: '选择工具 (V)',
+      icon: <MousePointer2 className="w-4 h-4" />,
+    },
+    {
+      id: 'highlight',
+      ariaLabel: '高亮工具',
+      title: '文字高亮 (H)',
+      icon: <Highlighter className="w-4 h-4" />,
+    },
+    {
+      id: 'underline',
+      ariaLabel: '下划线工具',
+      title: '文字下划线 (U)',
+      icon: <UnderlineIcon className="w-4 h-4" />,
+    },
+    {
+      id: 'note',
+      ariaLabel: '便签工具',
+      title: '便签 (N)',
+      icon: <MessageSquare className="w-4 h-4" />,
+    },
+    {
+      id: 'freetext',
+      ariaLabel: '文字批注工具',
+      title: '文字批注 (T)',
+      icon: <Type className="w-4 h-4" />,
+    },
     { id: 'ink', ariaLabel: '手绘工具', title: '画笔 (P)', icon: <PenLine className="w-4 h-4" /> },
-    { id: 'rect', ariaLabel: '矩形工具', title: '矩形 (R)', icon: <SquareIcon className="w-4 h-4" /> },
-    { id: 'arrow', ariaLabel: '箭头工具', title: '箭头 (A)', icon: <ArrowUpRight className="w-4 h-4" /> },
-    { id: 'regionAsk', ariaLabel: '框选问 AI', title: '框选提问 (Q)', icon: <Scan className="w-4 h-4" />, visible: showRegionAsk },
-    { id: 'eraser', ariaLabel: '橡皮擦工具', title: '橡皮擦 (E)', icon: <Eraser className="w-4 h-4" /> },
+    {
+      id: 'rect',
+      ariaLabel: '矩形工具',
+      title: '矩形 (R)',
+      icon: <SquareIcon className="w-4 h-4" />,
+    },
+    {
+      id: 'arrow',
+      ariaLabel: '箭头工具',
+      title: '箭头 (A)',
+      icon: <ArrowUpRight className="w-4 h-4" />,
+    },
+    {
+      id: 'regionAsk',
+      ariaLabel: '框选问 AI',
+      title: '框选提问 (Q)',
+      icon: <Scan className="w-4 h-4" />,
+      visible: showRegionAsk,
+    },
+    {
+      id: 'eraser',
+      ariaLabel: '橡皮擦工具',
+      title: '橡皮擦 (E)',
+      icon: <Eraser className="w-4 h-4" />,
+    },
   ];
 
   return (
@@ -137,8 +183,8 @@ export function Toolbar<C extends string = AnnotationColor>({
       {/* Left: Tools Group */}
       <div className="flex items-center space-x-1 flex-shrink-0">
         {toolItems
-          .filter((item) => item.visible !== false)
-          .map((item) => {
+          .filter(item => item.visible !== false)
+          .map(item => {
             const active = currentTool === item.id;
             const disabled = toolsDisabled && item.id !== 'select' && item.id !== 'regionAsk';
             return (
@@ -167,7 +213,7 @@ export function Toolbar<C extends string = AnnotationColor>({
         {/* Color Palette & Bespoke Stroke Width Dropdown */}
         <div className="relative flex items-center space-x-1.5" ref={colorPopoverRef}>
           <div className="flex items-center space-x-1.5 px-1.5 py-1 rounded-lg">
-            {colors.map((c) => (
+            {colors.map(c => (
               <button
                 key={c.value}
                 type="button"
@@ -187,8 +233,8 @@ export function Toolbar<C extends string = AnnotationColor>({
             ariaLabel="工具线宽"
             size="xs"
             value={String(strokeWidth)}
-            onChange={(v) => onStrokeWidthChange(Number(v))}
-            options={[1, 2, 3, 5, 8].map((v) => ({ value: String(v), label: `${v}px` }))}
+            onChange={v => onStrokeWidthChange(Number(v))}
+            options={[1, 2, 3, 5, 8].map(v => ({ value: String(v), label: `${v}px` }))}
             triggerClassName="bg-slate-100/70 border-transparent hover:bg-slate-200/70 shadow-none"
             title="线条粗细"
           />
@@ -215,12 +261,12 @@ export function Toolbar<C extends string = AnnotationColor>({
                   <CustomColorSwatch
                     ariaLabel="工具颜色"
                     value={currentColor}
-                    onChange={(v) => onSelectColor(v as C)}
+                    onChange={v => onSelectColor(v as C)}
                   />
                 </label>
               </div>
               <div className="flex items-center justify-between mb-4">
-                {colors.map((c) => (
+                {colors.map(c => (
                   <button
                     key={c.value}
                     type="button"
@@ -245,7 +291,7 @@ export function Toolbar<C extends string = AnnotationColor>({
                 max="8"
                 step="1"
                 value={strokeWidth}
-                onChange={(e) => onStrokeWidthChange(Number(e.target.value))}
+                onChange={e => onStrokeWidthChange(Number(e.target.value))}
                 className="w-full accent-blue-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
               />
 
@@ -261,7 +307,7 @@ export function Toolbar<C extends string = AnnotationColor>({
                     max="1"
                     step="0.05"
                     value={opacity}
-                    onChange={(e) => onOpacityChange(Number(e.target.value))}
+                    onChange={e => onOpacityChange(Number(e.target.value))}
                     className="w-full accent-blue-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
                   />
                 </div>
@@ -328,7 +374,7 @@ export function Toolbar<C extends string = AnnotationColor>({
 
           {showScaleDropdown && (
             <div className="animate-surface-in absolute top-10 right-0 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl shadow-[0_14px_34px_-8px_rgba(15,23,42,0.18)] py-1.5 px-1.5 w-32 z-50 text-[13px]">
-              {scalePresets.map((preset) => (
+              {scalePresets.map(preset => (
                 <button
                   key={preset.label}
                   type="button"
@@ -337,7 +383,8 @@ export function Toolbar<C extends string = AnnotationColor>({
                     setShowScaleDropdown(false);
                   }}
                   className={`w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 flex items-center justify-between transition-colors ${
-                    fitMode === 'manual' && Math.round(scale * 100) === Math.round(preset.value * 100)
+                    fitMode === 'manual' &&
+                    Math.round(scale * 100) === Math.round(preset.value * 100)
                       ? 'text-blue-600 font-medium bg-blue-50/70'
                       : 'text-[#1f2329]'
                   }`}

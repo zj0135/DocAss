@@ -6,14 +6,16 @@ import { CustomSelect } from '../ui/primitives/CustomSelect';
 import { ToastBanner } from '../ui/primitives/ToastBanner';
 
 export function OcrPageStatus({ controller, page }: { controller: DocumentText; page: number }) {
-  const value = useStore(controller.store, (s) => s.pages[page]);
+  const value = useStore(controller.store, s => s.pages[page]);
   return value && (value.phase === 'queued' || value.phase === 'running') ? (
     <div
       className="animate-float-in absolute bottom-3 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-[0_10px_28px_-6px_rgba(15,23,42,0.16)] rounded-xl px-4 py-2 text-[12.5px] text-slate-700 flex items-center gap-2 pointer-events-none whitespace-nowrap"
       role="status"
     >
       <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
-      <span className="font-medium">{value.phase === 'running' ? '正在识别文字…' : '本页等待识别…'}</span>
+      <span className="font-medium">
+        {value.phase === 'running' ? '正在识别文字…' : '本页等待识别…'}
+      </span>
     </div>
   ) : null;
 }
@@ -33,13 +35,17 @@ export function OcrControls({
 }) {
   const state = useStore(controller.store);
   const current = state.pages[page];
-  const active = Object.values(state.pages).filter((p) => p.phase === 'queued' || p.phase === 'running').length;
-  const completed = Object.values(state.pages).filter((p) => p.phase === 'ready' || p.phase === 'empty').length;
-  const hasFailed = Object.values(state.pages).some((p) => p.phase === 'failed');
+  const active = Object.values(state.pages).filter(
+    p => p.phase === 'queued' || p.phase === 'running',
+  ).length;
+  const completed = Object.values(state.pages).filter(
+    p => p.phase === 'ready' || p.phase === 'empty',
+  ).length;
+  const hasFailed = Object.values(state.pages).some(p => p.phase === 'failed');
 
   const fail = (e: unknown) => {
     if (!(e instanceof DOMException && e.name === 'AbortError')) {
-      controller.store.setState((s) => ({
+      controller.store.setState(s => ({
         pages: {
           ...s.pages,
           [page]: {
@@ -90,7 +96,7 @@ export function OcrControls({
           size="xs"
           disabled={disabled}
           value={current?.mode ?? 'auto'}
-          onChange={(v) => void controller.setMode(page, v as TextMode).catch(fail)}
+          onChange={v => void controller.setMode(page, v as TextMode).catch(fail)}
           options={[
             { value: 'auto', label: '自动' },
             { value: 'native', label: '仅原生' },
@@ -126,7 +132,8 @@ export function OcrControls({
         <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-200">
           <Loader2 className="w-3 h-3 animate-spin" />
           <span role="status">
-            {state.all ? `全文识别 ${state.completed}/${state.total} 页` : '正在识别页面'}（当前推理不可立即中断）
+            {state.all ? `全文识别 ${state.completed}/${state.total} 页` : '正在识别页面'}
+            （当前推理不可立即中断）
           </span>
           <button
             type="button"
@@ -140,7 +147,9 @@ export function OcrControls({
       )}
 
       {current?.phase === 'cancelled' && (
-        <span className="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">已取消等待</span>
+        <span className="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+          已取消等待
+        </span>
       )}
       {current?.phase === 'empty' && (
         <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600">空白页 · 已检查</span>

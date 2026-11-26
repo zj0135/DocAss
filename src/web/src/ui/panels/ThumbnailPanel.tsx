@@ -21,7 +21,9 @@ export const ThumbnailPanel: React.FC<ThumbnailPanelProps> = ({
   return (
     <aside className="animate-panel-in w-[280px] bg-white border-r border-[#e3e6ea] flex flex-col flex-shrink-0 z-10">
       <div className="h-[44px] px-3.5 border-b border-[#e3e6ea] flex items-center justify-between flex-shrink-0">
-        <span className="text-[13px] font-semibold text-[#1f2329]">页面缩略图 ({pageCount} 页)</span>
+        <span className="text-[13px] font-semibold text-[#1f2329]">
+          页面缩略图 ({pageCount} 页)
+        </span>
         <button
           type="button"
           onClick={onClose}

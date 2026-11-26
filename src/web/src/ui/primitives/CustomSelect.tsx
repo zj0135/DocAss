@@ -46,7 +46,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
 
-  const selected = options.find((o) => o.value === value);
+  const selected = options.find(o => o.value === value);
 
   useEffect(() => {
     if (!open) return;
@@ -107,27 +107,27 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         disabled={disabled}
         value={value}
         onFocus={onFocus}
-        onMouseDown={(e) => {
+        onMouseDown={e => {
           if (disabled) return;
           e.preventDefault();
           onFocus?.();
-          setOpen((prev) => !prev);
+          setOpen(prev => !prev);
         }}
-        onKeyDown={(e) => {
+        onKeyDown={e => {
           if (disabled) return;
           if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowDown') {
             e.preventDefault();
             onFocus?.();
-            setOpen((prev) => !prev);
+            setOpen(prev => !prev);
           }
         }}
-        onChange={(e) => {
+        onChange={e => {
           onChange(e.target.value);
           setOpen(false);
         }}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
       >
-        {options.map((opt) => (
+        {options.map(opt => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>
@@ -143,7 +143,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             direction === 'up' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           } ${align === 'right' ? 'right-0' : 'left-0'} ${menuClassName}`}
         >
-          {options.map((opt) => {
+          {options.map(opt => {
             const isSelected = opt.value === value;
             return (
               <button

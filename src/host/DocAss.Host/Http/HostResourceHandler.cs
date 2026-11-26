@@ -54,7 +54,7 @@ public sealed class HostResourceHandler(string root, string origin)
             return response with { Headers = headers };
         }
         catch (AppException ex) { return ResourceResponse.Json(ex.Code == "FORBIDDEN" ? 403 : 400, ex.ToDto()); }
-        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException) { return ResourceResponse.Json(400,new {error="INVALID_PAYLOAD"}); }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException) { return ResourceResponse.Json(400, new { error = "INVALID_PAYLOAD" }); }
         catch (OperationCanceledException) { return ResourceResponse.Json(499, new { error = "CANCELLED" }); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return ResourceResponse.Json(500, new { error = "RESOURCE_FAILED" }); }
     }
@@ -96,8 +96,8 @@ public sealed class HostResourceHandler(string root, string origin)
         // large ranges as seekable slices, keeping allocation independent of size.
         if (end - start + 1 > 8 * 1024 * 1024)
         {
-            headers["Content-Range"]=$"bytes {start}-{end}/{length}";headers["Content-Length"]=(end-start+1).ToString();
-            return new(206,mime,[],headers){BodyStream=new FileSliceStream(path,start,end-start+1)};
+            headers["Content-Range"] = $"bytes {start}-{end}/{length}"; headers["Content-Length"] = (end - start + 1).ToString();
+            return new(206, mime, [], headers) { BodyStream = new FileSliceStream(path, start, end - start + 1) };
         }
         var bytes = new byte[checked((int)(end - start + 1))];
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.Asynchronous);
@@ -111,13 +111,14 @@ public sealed class HostResourceHandler(string root, string origin)
 
 internal sealed class FileSliceStream : Stream
 {
-    private readonly FileStream file;private readonly long start,length;private long position;
-    public FileSliceStream(string path,long start,long length){file=new(path,FileMode.Open,FileAccess.Read,FileShare.Read,65536,FileOptions.Asynchronous);this.start=start;this.length=length;file.Position=start;}
-    public override bool CanRead=>true;public override bool CanSeek=>true;public override bool CanWrite=>false;public override long Length=>length;
-    public override long Position{get=>position;set=>Seek(value,SeekOrigin.Begin);}
-    public override int Read(byte[] buffer,int offset,int count){var n=file.Read(buffer,offset,(int)Math.Min(count,length-position));position+=n;return n;}
-    public override async ValueTask<int> ReadAsync(Memory<byte> buffer,CancellationToken token=default){var n=await file.ReadAsync(buffer[..(int)Math.Min(buffer.Length,length-position)],token);position+=n;return n;}
-    public override long Seek(long offset,SeekOrigin origin){var target=origin switch{SeekOrigin.Begin=>offset,SeekOrigin.Current=>position+offset,_=>length+offset};if(target<0||target>length)throw new IOException("Range seek outside slice");file.Position=start+target;return position=target;}
-    public override void Flush(){}public override void SetLength(long value)=>throw new NotSupportedException();public override void Write(byte[] buffer,int offset,int count)=>throw new NotSupportedException();
-    protected override void Dispose(bool disposing){if(disposing)file.Dispose();base.Dispose(disposing);}
+    private readonly FileStream file; private readonly long start, length; private long position;
+    public FileSliceStream(string path, long start, long length) { file = new(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.Asynchronous); this.start = start; this.length = length; file.Position = start; }
+    public override bool CanRead => true; public override bool CanSeek => true; public override bool CanWrite => false; public override long Length => length;
+    public override long Position { get => position; set => Seek(value, SeekOrigin.Begin); }
+    public override int Read(byte[] buffer, int offset, int count) { var n = file.Read(buffer, offset, (int)Math.Min(count, length - position)); position += n; return n; }
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken token = default) { var n = await file.ReadAsync(buffer[..(int)Math.Min(buffer.Length, length - position)], token); position += n; return n; }
+    public override long Seek(long offset, SeekOrigin origin) { var target = origin switch { SeekOrigin.Begin => offset, SeekOrigin.Current => position + offset, _ => length + offset }; if (target < 0 || target > length) throw new IOException("Range seek outside slice"); file.Position = start + target; return position = target; }
+    public override void Flush() { }
+    public override void SetLength(long value) => throw new NotSupportedException(); public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    protected override void Dispose(bool disposing) { if (disposing) file.Dispose(); base.Dispose(disposing); }
 }

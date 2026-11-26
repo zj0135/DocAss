@@ -1,14 +1,14 @@
-using System.Threading.Channels;
 using System.Text.Json;
-using Microsoft.Data.Sqlite;
+using System.Threading.Channels;
 using DocAss.Host.Contracts;
 using DocAss.Host.Documents;
+using Microsoft.Data.Sqlite;
 
 namespace DocAss.Host.Storage;
 
 public sealed record DocumentSnapshot(long DocumentRevision, JsonElement[] Annotations, JsonElement[] Conversations, JsonElement[] Messages);
 
-public sealed class StorageService : IAsyncDisposable
+public sealed class StorageService : IStorageService
 {
     public const int SchemaVersion = 3;
     public string DatabasePath { get; }
@@ -36,7 +36,7 @@ public sealed class StorageService : IAsyncDisposable
             if (File.Exists(DatabasePath))
             {
                 using var existing = OpenRaw(true);
-                if (Convert.ToInt32(Scalar(existing,"PRAGMA user_version")) > SchemaVersion) { IsReadOnly=true;return true; }
+                if (Convert.ToInt32(Scalar(existing, "PRAGMA user_version")) > SchemaVersion) { IsReadOnly = true; return true; }
             }
             using var connection = OpenRaw(false);
             if (Scalar(connection, "PRAGMA integrity_check")?.ToString() != "ok") throw new AppException("DATABASE_CORRUPT", "数据库损坏，未修改原文件。可从最近备份恢复。");
@@ -101,10 +101,10 @@ public sealed class StorageService : IAsyncDisposable
         var snapshot = new DocumentSnapshot(revision, Rows("SELECT payload FROM annotations WHERE docHash=$h"), Rows("SELECT payload FROM conversations WHERE docHash=$h"), Rows(messageLimit == null ? "SELECT payload FROM messages WHERE docHash=$h ORDER BY sequence" : "SELECT payload FROM (SELECT payload,sequence FROM messages WHERE docHash=$h ORDER BY sequence DESC LIMIT 50) ORDER BY sequence"));
         tx.Commit(); return snapshot;
     });
-    public Task<JsonElement[]> ReadMessagesPageAsync(string hash,string conversationId,int before) => Enqueue(() =>
+    public Task<JsonElement[]> ReadMessagesPageAsync(string hash, string conversationId, int before) => Enqueue(() =>
     {
-        Contract.Check("Id",Json.Element(conversationId));Contract.Require(before>=0);
-        using var c=OpenRead();using var command=Command(c,"SELECT payload FROM messages WHERE docHash=$h AND conversationId=$c AND sequence<$b ORDER BY sequence DESC LIMIT 50",null,("$h",hash),("$c",conversationId),("$b",before));using var reader=command.ExecuteReader();var values=new List<JsonElement>();while(reader.Read())values.Add(JsonDocument.Parse(reader.GetString(0)).RootElement.Clone());values.Reverse();return values.ToArray();
+        Contract.Check("Id", Json.Element(conversationId)); Contract.Require(before >= 0);
+        using var c = OpenRead(); using var command = Command(c, "SELECT payload FROM messages WHERE docHash=$h AND conversationId=$c AND sequence<$b ORDER BY sequence DESC LIMIT 50", null, ("$h", hash), ("$c", conversationId), ("$b", before)); using var reader = command.ExecuteReader(); var values = new List<JsonElement>(); while (reader.Read()) values.Add(JsonDocument.Parse(reader.GetString(0)).RootElement.Clone()); values.Reverse(); return values.ToArray();
     });
     public Task<long> ReadRevisionAsync(string hash) => Enqueue(() => { using var c = OpenRead(); return Convert.ToInt64(Scalar(c, "SELECT documentRevision FROM documents WHERE docHash=$h", null, ("$h", hash)) ?? throw new AppException("DOCUMENT_CLOSED", "文档记录不存在")); });
     public Task<JsonElement?> GetOperationAsync(string hash, string operationId) => Enqueue(() =>
@@ -158,13 +158,13 @@ public sealed class StorageService : IAsyncDisposable
         switch (type)
         {
             case "annotation.put":
-                Contract.Require(S("docHash") == hash && (v.GetProperty("page").GetInt32() <= pageCount||S("migrationState")=="needsReview"), "标注文档或页码不匹配");
+                Contract.Require(S("docHash") == hash && (v.GetProperty("page").GetInt32() <= pageCount || S("migrationState") == "needsReview"), "标注文档或页码不匹配");
                 Execute(c, "INSERT INTO annotations(docHash,annotationId,revision,payload) VALUES($h,$i,$r,$j) ON CONFLICT(docHash,annotationId) DO UPDATE SET revision=$r,payload=$j", tx, ("$h", hash), ("$i", S("id")), ("$r", revision), ("$j", json)); break;
             case "conversation.put":
                 Execute(c, "INSERT INTO conversations(docHash,conversationId,payload) VALUES($h,$i,$j) ON CONFLICT(docHash,conversationId) DO UPDATE SET payload=$j", tx, ("$h", hash), ("$i", S("id")), ("$j", json)); break;
             case "migration.decision":
-                Contract.Require(S("oldHash")!=hash&&Scalar(c,"SELECT 1 FROM source_paths a JOIN source_paths b ON a.path=b.path WHERE a.docHash=$old AND b.docHash=$new",tx,("$old",S("oldHash")),("$new",hash))!=null,"版本不属于同一源文件");
-                Execute(c,"INSERT INTO migration_decisions(oldHash,newHash,decision) VALUES($o,$n,$d) ON CONFLICT(oldHash,newHash) DO UPDATE SET decision=$d",tx,("$o",S("oldHash")),("$n",hash),("$d",S("decision")));break;
+                Contract.Require(S("oldHash") != hash && Scalar(c, "SELECT 1 FROM source_paths a JOIN source_paths b ON a.path=b.path WHERE a.docHash=$old AND b.docHash=$new", tx, ("$old", S("oldHash")), ("$new", hash)) != null, "版本不属于同一源文件");
+                Execute(c, "INSERT INTO migration_decisions(oldHash,newHash,decision) VALUES($o,$n,$d) ON CONFLICT(oldHash,newHash) DO UPDATE SET decision=$d", tx, ("$o", S("oldHash")), ("$n", hash), ("$d", S("decision"))); break;
             case "message.put":
                 Contract.Require(Execute(c, "INSERT INTO messages(docHash,messageId,conversationId,sequence,state,payload) VALUES($h,$i,$c,$s,$t,$j) ON CONFLICT(docHash,messageId) DO UPDATE SET payload=$j,state=$t,sequence=$s WHERE conversationId=$c", tx, ("$h", hash), ("$i", S("id")), ("$c", S("conversationId")), ("$s", v.GetProperty("sequence").GetInt32()), ("$t", S("state")), ("$j", json)) == 1, "消息不能更换所属会话");
                 Execute(c, "DELETE FROM attachment_refs WHERE docHash=$h AND messageId=$i", tx, ("$h", hash), ("$i", S("id")));

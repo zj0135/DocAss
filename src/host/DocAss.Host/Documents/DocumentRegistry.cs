@@ -3,7 +3,7 @@ using DocAss.Host.Contracts;
 
 namespace DocAss.Host.Documents;
 
-public sealed class DocumentRegistry(string dataDirectory) : IDisposable
+public sealed class DocumentRegistry(string dataDirectory) : IDocumentRegistry
 {
     private sealed record Entry(DocHandle Handle, int PageCount, FileStream? WriteLock);
     private readonly ConcurrentDictionary<string, Entry> entries = new();
@@ -41,7 +41,7 @@ public sealed class DocumentRegistry(string dataDirectory) : IDisposable
         Contract.Check("Hash", Json.Element(hash));
         lock (gate)
         {
-            var entry=entries.Values.FirstOrDefault(e=>e.Handle.DocHash==hash);
+            var entry = entries.Values.FirstOrDefault(e => e.Handle.DocHash == hash);
             return entry?.WriteLock != null ? new BorrowedLease() : TryLock(hash);
         }
     }

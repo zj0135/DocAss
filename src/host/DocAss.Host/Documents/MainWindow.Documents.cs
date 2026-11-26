@@ -1,7 +1,7 @@
 using System.Text.Json;
-using Microsoft.Web.WebView2.Core;
 using DocAss.Host.Contracts;
 using DocAss.Host.Http;
+using Microsoft.Web.WebView2.Core;
 
 namespace DocAss.Host;
 
@@ -9,9 +9,9 @@ public sealed partial class MainWindow
 {
     private void RegisterDocumentMethods()
     {
-        bridge.Register("doc.checkSource",async(p,token)=>{Contract.Fields(p,"docId");return await files.CheckSourceAsync(p.GetProperty("docId").GetString()!,token);});
-        bridge.Register("doc.openVersion",async(p,token)=>{Contract.Fields(p,"docId");Emit("doc.opened",await files.OpenVersionAsync(p.GetProperty("docId").GetString()!,token));return null;});
-        bridge.Register("doc.migrationInfo",async(p,token)=>{Contract.Fields(p,"docId","oldHash");return await files.MigrationInfoAsync(p.GetProperty("docId").GetString()!,p.GetProperty("oldHash").GetString()!,token);});
+        bridge.Register("doc.checkSource", async (p, token) => { Contract.Fields(p, "docId"); return await files.CheckSourceAsync(p.GetProperty("docId").GetString()!, token); });
+        bridge.Register("doc.openVersion", async (p, token) => { Contract.Fields(p, "docId"); Emit("doc.opened", await files.OpenVersionAsync(p.GetProperty("docId").GetString()!, token)); return null; });
+        bridge.Register("doc.migrationInfo", async (p, token) => { Contract.Fields(p, "docId", "oldHash"); return await files.MigrationInfoAsync(p.GetProperty("docId").GetString()!, p.GetProperty("oldHash").GetString()!, token); });
         bridge.Register("doc.open", async (p, token) =>
         {
             Contract.Fields(p);
@@ -43,12 +43,12 @@ public sealed partial class MainWindow
     }
     private async Task<ResourceResponse?> DocumentResourceAsync(string[] parts, ResourceRequest request, CancellationToken token)
     {
-        if(parts.Length==4&&parts[3]=="clipboard"&&request.Method=="POST")
+        if (parts.Length == 4 && parts[3] == "clipboard" && request.Method == "POST")
         {
-            files.Resolve(parts[2]);var text=System.Text.Encoding.UTF8.GetString(await BoundedRead.ReadAsync(request.Body??Stream.Null,1024*1024,token));
-            try {await Dispatcher.InvokeAsync(()=>System.Windows.Clipboard.SetText(text));}
-            catch(System.Runtime.InteropServices.COMException){throw new AppException("CLIPBOARD_FAILED","剪贴板被其他程序占用，请重试",true);}
-            return ResourceResponse.Json(200,new{copied=true});
+            files.Resolve(parts[2]); var text = System.Text.Encoding.UTF8.GetString(await BoundedRead.ReadAsync(request.Body ?? Stream.Null, 1024 * 1024, token));
+            try { await Dispatcher.InvokeAsync(() => System.Windows.Clipboard.SetText(text)); }
+            catch (System.Runtime.InteropServices.COMException) { throw new AppException("CLIPBOARD_FAILED", "剪贴板被其他程序占用，请重试", true); }
+            return ResourceResponse.Json(200, new { copied = true });
         }
         if (request.Method != "GET") return null;
         if (parts.Length == 4 && parts[3] is "bytes" or "image") return await files.ReadAsync(parts[2], parts[3] == "image", request.Range, token);

@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 
 namespace DocAss.Host.Storage;
 
-public sealed class AttachmentService(StorageService storage, DocumentRegistry documents, string dataDirectory)
+public sealed class AttachmentService(StorageService storage, DocumentRegistry documents, string dataDirectory) : IAttachmentService
 {
     public const int MaxBytes = 8 * 1024 * 1024;
     private sealed class Upload(string docId, string hash)
@@ -109,25 +109,25 @@ public sealed class AttachmentService(StorageService storage, DocumentRegistry d
         }
         foreach (var (id, upload) in pending)
         {
-            if (upload.Created >= DateTime.UtcNow-TimeSpan.FromHours(24) || upload.Gate.CurrentCount == 0) keep.Add(FilePath(upload.Hash, id));
+            if (upload.Created >= DateTime.UtcNow - TimeSpan.FromHours(24) || upload.Gate.CurrentCount == 0) keep.Add(FilePath(upload.Hash, id));
             else pending.TryRemove(id, out _);
         }
         var root = Path.Combine(dataDirectory, "attachments"); var removed = 0;
         if (!Directory.Exists(root)) return removed;
         foreach (var directory in Directory.EnumerateDirectories(root))
         {
-            var docHash=Path.GetFileName(directory);
-            if (!System.Text.RegularExpressions.Regex.IsMatch(docHash,"^[a-f0-9]{64}$") || (File.GetAttributes(directory)&FileAttributes.ReparsePoint)!=0) continue;
-            using var documentLease=documents.TryCollectionLease(docHash);
-            if(documentLease==null)continue;
-            foreach(var path in Directory.EnumerateFiles(directory))
+            var docHash = Path.GetFileName(directory);
+            if (!System.Text.RegularExpressions.Regex.IsMatch(docHash, "^[a-f0-9]{64}$") || (File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) continue;
+            using var documentLease = documents.TryCollectionLease(docHash);
+            if (documentLease == null) continue;
+            foreach (var path in Directory.EnumerateFiles(directory))
             {
-            if (keep.Contains(path) || keep.Contains(path.Replace(".part", "")) || File.GetLastWriteTimeUtc(path) >= cutoff) continue;
-            var hash = Path.GetFileName(Path.GetDirectoryName(path)); var id = Path.GetFileNameWithoutExtension(path);
-            using var tx = c.BeginTransaction();
-            if (Convert.ToInt64(StorageService.Scalar(c,"SELECT COUNT(*) FROM attachment_refs WHERE docHash=$h AND attachmentId=$i",tx,("$h",hash),("$i",id)))>0) continue;
-            StorageService.Execute(c, "DELETE FROM attachments WHERE docHash=$h AND attachmentId=$i AND NOT EXISTS(SELECT 1 FROM attachment_refs WHERE docHash=$h AND attachmentId=$i)", tx, ("$h", hash), ("$i", id)); tx.Commit();
-            File.Delete(path); removed++;
+                if (keep.Contains(path) || keep.Contains(path.Replace(".part", "")) || File.GetLastWriteTimeUtc(path) >= cutoff) continue;
+                var hash = Path.GetFileName(Path.GetDirectoryName(path)); var id = Path.GetFileNameWithoutExtension(path);
+                using var tx = c.BeginTransaction();
+                if (Convert.ToInt64(StorageService.Scalar(c, "SELECT COUNT(*) FROM attachment_refs WHERE docHash=$h AND attachmentId=$i", tx, ("$h", hash), ("$i", id))) > 0) continue;
+                StorageService.Execute(c, "DELETE FROM attachments WHERE docHash=$h AND attachmentId=$i AND NOT EXISTS(SELECT 1 FROM attachment_refs WHERE docHash=$h AND attachmentId=$i)", tx, ("$h", hash), ("$i", id)); tx.Commit();
+                File.Delete(path); removed++;
             }
         }
         return removed;

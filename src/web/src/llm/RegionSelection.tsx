@@ -19,7 +19,9 @@ export function RegionSelection({
 }) {
   const [rect, setRect] = useState<Box>();
   const [busy, setBusy] = useState(false);
-  const drag = useRef<{ start: [number, number]; rect?: Box; handle?: number } | undefined>(undefined);
+  const drag = useRef<{ start: [number, number]; rect?: Box; handle?: number } | undefined>(
+    undefined,
+  );
   const host = useRef<HTMLDivElement>(null);
   const view = viewport(info, scale, rotation);
 
@@ -36,7 +38,7 @@ export function RegionSelection({
       ref={host}
       data-testid="region-selection"
       className="absolute inset-0 cursor-crosshair z-20"
-      onPointerDown={(e) => {
+      onPointerDown={e => {
         e.stopPropagation();
         if (busy || e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
         e.preventDefault();
@@ -49,7 +51,7 @@ export function RegionSelection({
         };
         if (index === undefined) setRect(undefined);
       }}
-      onPointerMove={(e) => {
+      onPointerMove={e => {
         e.stopPropagation();
         const d = drag.current;
         if (!d) return;
@@ -65,9 +67,14 @@ export function RegionSelection({
         } else {
           b = [d.start[0], d.start[1], p[0], p[1]];
         }
-        setRect([Math.min(b[0], b[2]), Math.min(b[1], b[3]), Math.max(b[0], b[2]), Math.max(b[1], b[3])]);
+        setRect([
+          Math.min(b[0], b[2]),
+          Math.min(b[1], b[3]),
+          Math.max(b[0], b[2]),
+          Math.max(b[1], b[3]),
+        ]);
       }}
-      onPointerUp={(e) => {
+      onPointerUp={e => {
         e.stopPropagation();
         drag.current = undefined;
         if (e.currentTarget.hasPointerCapture(e.pointerId)) {
@@ -121,18 +128,18 @@ export function RegionSelection({
                   [rect[2], rect[1]],
                   [rect[2], rect[3]],
                   [rect[0], rect[3]],
-                ].map((p) => point(transform, p as [number, number]));
+                ].map(p => point(transform, p as [number, number]));
                 const b: Box = [
-                  Math.max(info.pageBox[0], Math.min(...corners.map((p) => p[0]))),
-                  Math.max(info.pageBox[1], Math.min(...corners.map((p) => p[1]))),
-                  Math.min(info.pageBox[2], Math.max(...corners.map((p) => p[0]))),
-                  Math.min(info.pageBox[3], Math.max(...corners.map((p) => p[1]))),
+                  Math.max(info.pageBox[0], Math.min(...corners.map(p => p[0]))),
+                  Math.max(info.pageBox[1], Math.min(...corners.map(p => p[1]))),
+                  Math.min(info.pageBox[2], Math.max(...corners.map(p => p[0]))),
+                  Math.min(info.pageBox[3], Math.max(...corners.map(p => p[1]))),
                 ];
                 setBusy(true);
                 void chat
                   .addRegion(info.page, b)
                   .then(onCancel)
-                  .catch((e) => chat.store.setState({ error: String(e) }))
+                  .catch(e => chat.store.setState({ error: String(e) }))
                   .finally(() => setBusy(false));
               }}
               className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-60"

@@ -11,18 +11,19 @@ namespace DocAss.Host.Documents;
 
 public sealed record NativePageResult(string DocId, string JobId, string ContentRevision, int PageGeneration, string Status, PageInfo PageInfo, Glyph[] Glyphs, string ProfileFingerprint, string? Reason)
 {
-    public NativeSpace[] Spaces {get;init;}=[];
-    public bool HasImages {get;init;}
+    public NativeSpace[] Spaces { get; init; } = [];
+    public bool HasImages { get; init; }
 }
-public sealed class TextGeometryService(DocumentService files)
+public sealed class TextGeometryService(DocumentService files) : ITextGeometryService
 {
-    internal sealed class GeometryLog:UglyToad.PdfPig.Logging.ILog
+    internal sealed class GeometryLog : UglyToad.PdfPig.Logging.ILog
     {
-        public bool Unreliable {get;private set;}
-        public void Debug(string message){} public void Debug(string message,Exception ex){}
-        public void Warn(string message){if(!message.StartsWith("User space unit"))Unreliable=true;}
-        public void Error(string message)=>Unreliable=true;
-        public void Error(string message,Exception ex)=>Unreliable=true;
+        public bool Unreliable { get; private set; }
+        public void Debug(string message) { }
+        public void Debug(string message, Exception ex) { }
+        public void Warn(string message) { if (!message.StartsWith("User space unit")) Unreliable = true; }
+        public void Error(string message) => Unreliable = true;
+        public void Error(string message, Exception ex) => Unreliable = true;
     }
     public static readonly string Profile = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("PdfPig-0.1.16/raw-user-space/v1")));
     private readonly SemaphoreSlim workers = new(2, 2);
@@ -52,12 +53,12 @@ public sealed class TextGeometryService(DocumentService files)
             {
                 result = await Task.Run(() =>
                 {
-                    if (doc.Image != null) return new NativePageResult(docId, jobId, doc.Snapshot.Hash, 0, "unreliable", doc.Image.PageInfo, [], Profile, "此页需要 OCR"){HasImages=true};
-                    var log=new GeometryLog();
-                    using var pdf = PdfDocument.Open(doc.Snapshot.Path, new ParsingOptions { Password = doc.Password ?? "",Logger=log });
+                    if (doc.Image != null) return new NativePageResult(docId, jobId, doc.Snapshot.Hash, 0, "unreliable", doc.Image.PageInfo, [], Profile, "此页需要 OCR") { HasImages = true };
+                    var log = new GeometryLog();
+                    using var pdf = PdfDocument.Open(doc.Snapshot.Path, new ParsingOptions { Password = doc.Password ?? "", Logger = log });
                     linked.Token.ThrowIfCancellationRequested();
-                    var extracted=ExtractPage(pdf.GetPage(page), docId, jobId, doc.Snapshot.Hash, linked.Token);
-                    return log.Unreliable ? extracted with {Status="unreliable",Reason="字体或字符映射无法可靠解析，请使用页面图像或 OCR"} : extracted;
+                    var extracted = ExtractPage(pdf.GetPage(page), docId, jobId, doc.Snapshot.Hash, linked.Token);
+                    return log.Unreliable ? extracted with { Status = "unreliable", Reason = "字体或字符映射无法可靠解析，请使用页面图像或 OCR" } : extracted;
                 }, linked.Token);
             }
             finally { workers.Release(); }
@@ -104,25 +105,26 @@ public sealed class TextGeometryService(DocumentService files)
     {
         var info = Info(page); Contract.Check("PageInfo", Json.Element(info));
         if (page.Letters.Count > 25000) throw new AppException("TEXT_TOO_LARGE", "单页超过 25000 字形，已停止精确提取");
-        var glyphs = new List<Glyph>();var spaces=new List<NativeSpace>(); var unreliable = false;
+        var glyphs = new List<Glyph>(); var spaces = new List<NativeSpace>(); var unreliable = false;
         for (var i = 0; i < page.Letters.Count; i++)
         {
             token.ThrowIfCancellationRequested(); var letter = page.Letters[i];
             if (letter.Value.Length > 256 || letter.Value.Contains('\ufffd') || letter.Value.Contains('\0')) { unreliable = true; continue; }
             if (string.IsNullOrWhiteSpace(letter.Value))
             {
-                if(letter.Value.Length>0){var a=ToPage(letter.StartBaseLine,info);var b=ToPage(letter.EndBaseLine,info);spaces.Add(new(){Text=letter.Value,Baseline=[a.X,a.Y,b.X,b.Y]});}continue;
+                if (letter.Value.Length > 0) { var a = ToPage(letter.StartBaseLine, info); var b = ToPage(letter.EndBaseLine, info); spaces.Add(new() { Text = letter.Value, Baseline = [a.X, a.Y, b.X, b.Y] }); }
+                continue;
             }
             var box = letter.BoundingBox;
             var quad = CanonicalQuad(new[] { box.BottomLeft, box.BottomRight, box.TopRight, box.TopLeft }.Select(p => ToPage(p, info)));
             var start = ToPage(letter.StartBaseLine, info); var end = ToPage(letter.EndBaseLine, info);
-            var advance=Math.Sqrt(Math.Pow(end.X-start.X,2)+Math.Pow(end.Y-start.Y,2));
-            if(advance>.01){var dx=(end.X-start.X)/advance;var dy=(end.Y-start.Y)/advance;var projections=Enumerable.Range(0,4).Select(n=>quad[n*2]*dx+quad[n*2+1]*dy).ToArray();if(projections.Max()-projections.Min()>advance*4)unreliable=true;}
+            var advance = Math.Sqrt(Math.Pow(end.X - start.X, 2) + Math.Pow(end.Y - start.Y, 2));
+            if (advance > .01) { var dx = (end.X - start.X) / advance; var dy = (end.Y - start.Y) / advance; var projections = Enumerable.Range(0, 4).Select(n => quad[n * 2] * dx + quad[n * 2 + 1] * dy).ToArray(); if (projections.Max() - projections.Min() > advance * 4) unreliable = true; }
             var idBytes = SHA256.HashData(Encoding.UTF8.GetBytes($"{hash}:{page.Number}:{i}"));
             var glyph = new Glyph { Id = new Guid(idBytes.AsSpan(0, 16)).ToString(), Text = letter.Value, Quad = quad, Baseline = [start.X, start.Y, end.X, end.Y], Source = "native" };
             try { Contract.Check("Glyph", Json.Element(glyph)); glyphs.Add(glyph); }
             catch (AppException) { unreliable = true; }
         }
-        return new(docId, jobId, hash, 0, unreliable || glyphs.Count == 0 ? "unreliable" : "ready", info, glyphs.ToArray(), Profile, unreliable ? "部分字形无法可靠映射，请使用页面图像或 OCR" : glyphs.Count == 0 ? "此页没有原生文字" : null){Spaces=spaces.ToArray(),HasImages=page.NumberOfImages>0};
+        return new(docId, jobId, hash, 0, unreliable || glyphs.Count == 0 ? "unreliable" : "ready", info, glyphs.ToArray(), Profile, unreliable ? "部分字形无法可靠映射，请使用页面图像或 OCR" : glyphs.Count == 0 ? "此页没有原生文字" : null) { Spaces = spaces.ToArray(), HasImages = page.NumberOfImages > 0 };
     }
 }

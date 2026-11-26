@@ -15,13 +15,11 @@ export const OutlinePanel: React.FC<OutlinePanelProps> = ({
   onSelectPage,
   onClose,
 }) => {
-  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(
-    new Set(['out-1', 'out-2'])
-  );
+  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set(['out-1', 'out-2']));
 
   const toggleExpand = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setExpandedIds((prev) => {
+    setExpandedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -40,16 +38,14 @@ export const OutlinePanel: React.FC<OutlinePanelProps> = ({
           onClick={() => onSelectPage(item.page)}
           style={{ paddingLeft: `${12 + depth * 14}px` }}
           className={`flex items-center justify-between py-1.5 pr-2.5 rounded-lg cursor-pointer text-[13px] transition-colors ${
-            isCurrent
-              ? 'bg-blue-50 text-blue-600 font-medium'
-              : 'text-[#1f2329] hover:bg-slate-100'
+            isCurrent ? 'bg-blue-50 text-blue-600 font-medium' : 'text-[#1f2329] hover:bg-slate-100'
           }`}
         >
           <div className="flex items-center space-x-1.5 truncate">
             {hasChildren ? (
               <button
                 type="button"
-                onClick={(e) => toggleExpand(item.id, e)}
+                onClick={e => toggleExpand(item.id, e)}
                 className="p-0.5 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600"
               >
                 {isExpanded ? (
@@ -73,7 +69,7 @@ export const OutlinePanel: React.FC<OutlinePanelProps> = ({
 
         {hasChildren && isExpanded && (
           <div className="mt-0.5 space-y-0.5">
-            {item.children!.map((child) => renderItem(child, depth + 1))}
+            {item.children!.map(child => renderItem(child, depth + 1))}
           </div>
         )}
       </div>
@@ -101,11 +97,9 @@ export const OutlinePanel: React.FC<OutlinePanelProps> = ({
       {/* Tree Content */}
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
         {outline.length === 0 ? (
-          <div className="text-center py-8 text-[13px] text-[#8a9099]">
-            此文档没有大纲
-          </div>
+          <div className="text-center py-8 text-[13px] text-[#8a9099]">此文档没有大纲</div>
         ) : (
-          outline.map((item) => renderItem(item))
+          outline.map(item => renderItem(item))
         )}
       </div>
     </aside>

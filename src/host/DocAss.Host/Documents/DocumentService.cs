@@ -8,18 +8,18 @@ using UglyToad.PdfPig.Exceptions;
 
 namespace DocAss.Host.Documents;
 
-public sealed record OpenResult(string Status, string OpenId, string FileName, DocHandle? Handle = null, int PageCount = 0, ImageInfo? Image = null){public string? PreviousHash {get;init;}}
+public sealed record OpenResult(string Status, string OpenId, string FileName, DocHandle? Handle = null, int PageCount = 0, ImageInfo? Image = null) { public string? PreviousHash { get; init; } }
 public sealed record RecentDocument(string DocHash, string FileName, string OpenedAt);
 internal sealed record SourceSnapshot(string Path, string SourcePath, string Hash, string FileName, string Kind, long Length);
 internal sealed record OpenDocument(SourceSnapshot Snapshot, int PageCount, string? Password, ImageInfo? Image, CancellationTokenSource Lifetime, FileStream Lease)
 {
-    public string? PreviousHash {get;set;}
+    public string? PreviousHash { get; set; }
     // WebView2 owns response streams until consumed. Weak tracking permits its
     // released responses to be collected, while close can invalidate live ones.
-    public List<WeakReference<Stream>> Streams {get;} = new();
+    public List<WeakReference<Stream>> Streams { get; } = new();
 }
 
-public sealed partial class DocumentService(string directory, DocumentRegistry registry, StorageService storage) : IDisposable
+public sealed partial class DocumentService(string directory, DocumentRegistry registry, StorageService storage) : IDocumentService
 {
     public const long MaxLength = 1024L * 1024 * 1024;
     private readonly ConcurrentDictionary<string, SourceSnapshot> pending = new();
@@ -53,13 +53,13 @@ public sealed partial class DocumentService(string directory, DocumentRegistry r
     private async Task<OpenResult> FinishAsync(string id, string? password, CancellationToken token)
     {
         if (!pending.TryGetValue(id, out var snapshot)) throw new AppException("CANCELLED", "打开任务已取消");
-        var existing=opened.FirstOrDefault(e=>e.Value.Snapshot.Hash==snapshot.Hash);
-        if(existing.Value!=null){pending.TryRemove(id,out _);await RememberAsync(snapshot);return Ready(existing.Key,existing.Value);}
+        var existing = opened.FirstOrDefault(e => e.Value.Snapshot.Hash == snapshot.Hash);
+        if (existing.Value != null) { pending.TryRemove(id, out _); await RememberAsync(snapshot); return Ready(existing.Key, existing.Value); }
         var pages = 1; ImageInfo? image = null;
         try
         {
             if (snapshot.Kind == "pdf") pages = await Task.Run(() => { using var pdf = PdfDocument.Open(snapshot.Path, new ParsingOptions { Password = password ?? "" }); return pdf.NumberOfPages; }, token);
-            else image = await Task.Run(() => ImageDecoder.Normalize(snapshot.Path, snapshot.Path + ".png",token), token);
+            else image = await Task.Run(() => ImageDecoder.Normalize(snapshot.Path, snapshot.Path + ".png", token), token);
         }
         catch (PdfDocumentEncryptedException) { return new(password == null ? "password-needed" : "incorrect", id, snapshot.FileName); }
         catch (AppException) { pending.TryRemove(id, out _); throw; }
@@ -68,21 +68,21 @@ public sealed partial class DocumentService(string directory, DocumentRegistry r
         token.ThrowIfCancellationRequested();
         if (!pending.TryRemove(id, out _)) throw new AppException("CANCELLED", "打开任务已取消");
         var handle = registry.Register(snapshot.Hash, snapshot.FileName, pages, snapshot.Length, snapshot.Kind);
-        var document = new OpenDocument(snapshot, pages, password, image, new(), new(snapshot.Path,FileMode.Open,FileAccess.Read,FileShare.Read));
+        var document = new OpenDocument(snapshot, pages, password, image, new(), new(snapshot.Path, FileMode.Open, FileAccess.Read, FileShare.Read));
         try
         {
             await storage.EnsureDocumentAsync(handle, pages); await RememberAsync(snapshot);
-            document.PreviousHash=await MigrationCandidateAsync(snapshot);
+            document.PreviousHash = await MigrationCandidateAsync(snapshot);
             token.ThrowIfCancellationRequested(); opened[handle.DocId] = document;
             return Ready(handle.DocId, document);
         }
         catch { registry.Close(handle.DocId); document.Lifetime.Dispose(); document.Lease.Dispose(); throw; }
     }
-    private OpenResult Ready(string id, OpenDocument document) => new("ready", id, document.Snapshot.FileName, registry.Resolve(id), document.PageCount, document.Image){PreviousHash=document.PreviousHash};
+    private OpenResult Ready(string id, OpenDocument document) => new("ready", id, document.Snapshot.FileName, registry.Resolve(id), document.PageCount, document.Image) { PreviousHash = document.PreviousHash };
     internal OpenDocument Resolve(string id) { registry.Resolve(id); return opened.TryGetValue(id, out var document) ? document : throw new AppException("DOCUMENT_CLOSED", "文档已关闭"); }
     public OpenResult Info(string id) => Ready(id, Resolve(id));
     public string? Password(string id) => Resolve(id).Password;
-    public void Close(string id) { if (opened.TryRemove(id, out var doc)) { doc.Lifetime.Cancel();lock(doc.Streams){foreach(var reference in doc.Streams)if(reference.TryGetTarget(out var stream))stream.Dispose();doc.Streams.Clear();}doc.Lifetime.Dispose();doc.Lease.Dispose(); } registry.Close(id); }
+    public void Close(string id) { if (opened.TryRemove(id, out var doc)) { doc.Lifetime.Cancel(); lock (doc.Streams) { foreach (var reference in doc.Streams) if (reference.TryGetTarget(out var stream)) stream.Dispose(); doc.Streams.Clear(); } doc.Lifetime.Dispose(); doc.Lease.Dispose(); } registry.Close(id); }
     private async Task<SourceSnapshot> CopyAsync(string path, CancellationToken token)
     {
         var extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
@@ -100,10 +100,10 @@ public sealed partial class DocumentService(string directory, DocumentRegistry r
                 output.Flush(true);
             }
             var digest = Convert.ToHexStringLower(hash.GetHashAndReset()); var target = System.IO.Path.Combine(snapshots, digest);
-            if(File.Exists(target))
+            if (File.Exists(target))
             {
-                await using var saved=File.OpenRead(target);
-                if(Convert.ToHexStringLower(await SHA256.HashDataAsync(saved,token))!=digest)throw new AppException("SNAPSHOT_CORRUPT","快照校验失败，请关闭文档后清理损坏的缓存再重试");
+                await using var saved = File.OpenRead(target);
+                if (Convert.ToHexStringLower(await SHA256.HashDataAsync(saved, token)) != digest) throw new AppException("SNAPSHOT_CORRUPT", "快照校验失败，请关闭文档后清理损坏的缓存再重试");
             }
             if (!File.Exists(target)) { try { File.Move(temporary, target); } catch (IOException) when (File.Exists(target)) { } }
             return new(target, System.IO.Path.GetFullPath(path), digest, System.IO.Path.GetFileName(path), extension == ".pdf" ? "pdf" : "image", source.Length);
@@ -137,8 +137,8 @@ public sealed partial class DocumentService(string directory, DocumentRegistry r
         var doc = Resolve(id); var path = image && doc.Image != null ? doc.Snapshot.Path + ".png" : doc.Snapshot.Path;
         var mime = image ? "image/png" : "application/pdf";
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, doc.Lifetime.Token);
-        var response=await HostResourceHandler.FileRangeAsync(path, mime, range, linked.Token);
-        if(response.BodyStream!=null)lock(doc.Streams){if(linked.IsCancellationRequested){response.BodyStream.Dispose();linked.Token.ThrowIfCancellationRequested();}doc.Streams.RemoveAll(reference=>!reference.TryGetTarget(out _));doc.Streams.Add(new(response.BodyStream));}
+        var response = await HostResourceHandler.FileRangeAsync(path, mime, range, linked.Token);
+        if (response.BodyStream != null) lock (doc.Streams) { if (linked.IsCancellationRequested) { response.BodyStream.Dispose(); linked.Token.ThrowIfCancellationRequested(); } doc.Streams.RemoveAll(reference => !reference.TryGetTarget(out _)); doc.Streams.Add(new(response.BodyStream)); }
         return response;
     }
     public void Dispose() { foreach (var id in opened.Keys) Close(id); pending.Clear(); }

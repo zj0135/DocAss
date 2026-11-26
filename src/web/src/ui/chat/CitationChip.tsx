@@ -7,11 +7,7 @@ interface CitationChipProps {
   onClick: (page: number) => void;
 }
 
-export const CitationChip: React.FC<CitationChipProps> = ({
-  page,
-  label,
-  onClick,
-}) => {
+export const CitationChip: React.FC<CitationChipProps> = ({ page, label, onClick }) => {
   return (
     <button
       onClick={() => onClick(page)}

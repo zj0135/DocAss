@@ -23,7 +23,7 @@ export function Thumbnails({
     void (async () => {
       for (let page = first; page <= last; page++) {
         const info = await document.getPageInfo(page);
-        if (active) setInfos((old) => ({ ...old, [page]: info }));
+        if (active) setInfos(old => ({ ...old, [page]: info }));
       }
     })().catch(() => {});
     return () => {
@@ -35,10 +35,10 @@ export function Thumbnails({
     <div
       aria-label="缩略图"
       className="flex-1 min-h-0 overflow-y-auto p-3"
-      onScroll={(e) => setTop(e.currentTarget.scrollTop)}
+      onScroll={e => setTop(e.currentTarget.scrollTop)}
     >
       <div style={{ height: document.pageCount * rowHeight, position: 'relative' }}>
-        {Array.from({ length: last - first + 1 }, (_, i) => first + i).map((page) => {
+        {Array.from({ length: last - first + 1 }, (_, i) => first + i).map(page => {
           const info = infos[page];
           const isSelected = page === current;
           return (

@@ -32,7 +32,8 @@ export type ToolType =
 
 export type AnnotationColor = '#F6C445' | '#22C55E' | '#3B82F6' | '#EF4444' | '#A855F7';
 
-export type AnnotationType = 'highlight' | 'underline' | 'note' | 'freetext' | 'ink' | 'rect' | 'arrow';
+export type AnnotationType =
+  'highlight' | 'underline' | 'note' | 'freetext' | 'ink' | 'rect' | 'arrow';
 
 export interface BaseAnnotation {
   id: string;
@@ -88,11 +89,7 @@ export interface FreetextAnnotation extends BaseAnnotation {
 }
 
 export type AnyAnnotation =
-  | HighlightAnnotation
-  | NoteAnnotation
-  | RectAnnotation
-  | ArrowAnnotation
-  | FreetextAnnotation;
+  HighlightAnnotation | NoteAnnotation | RectAnnotation | ArrowAnnotation | FreetextAnnotation;
 
 export interface ToolCallRecord {
   id: string;

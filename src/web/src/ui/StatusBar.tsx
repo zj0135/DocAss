@@ -1,13 +1,6 @@
 import React, { useState } from 'react';
 import type { DocTab } from '../types';
-import {
-  FileText,
-  CheckCircle2,
-  Minus,
-  Plus,
-  X,
-  Scan,
-} from 'lucide-react';
+import { FileText, CheckCircle2, Minus, Plus, X, Scan } from 'lucide-react';
 
 interface StatusBarProps {
   activeTab?: DocTab;
@@ -15,7 +8,7 @@ interface StatusBarProps {
   scale: number;
   onScaleChange: (scale: number) => void;
   isSaved?: boolean;
-  saveState?:'pending'|'saving'|'saved'|'error';
+  saveState?: 'pending' | 'saving' | 'saved' | 'error';
   onCancelOcr?: () => void;
 }
 
@@ -30,7 +23,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   const [isEditingPage, setIsEditingPage] = useState(false);
   const [pageInput, setPageInput] = useState('');
-  const [pageError,setPageError]=useState('');
+  const [pageError, setPageError] = useState('');
 
   if (!activeTab) {
     return (
@@ -44,9 +37,15 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   const handlePageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const pageNum = Number(pageInput);
-    if (/^\d+$/.test(pageInput) && Number.isInteger(pageNum) && pageNum >= 1 && pageNum <= activeTab.pageCount) {
+    if (
+      /^\d+$/.test(pageInput) &&
+      Number.isInteger(pageNum) &&
+      pageNum >= 1 &&
+      pageNum <= activeTab.pageCount
+    ) {
       onPageChange(pageNum);
-      setPageError('');setIsEditingPage(false);
+      setPageError('');
+      setIsEditingPage(false);
     } else {
       setPageError(`请输入 1–${activeTab.pageCount} 之间的整数`);
     }
@@ -75,13 +74,17 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               aria-invalid={!!pageError}
               type="text"
               value={pageInput}
-              onChange={(e) => setPageInput(e.target.value)}
+              onChange={e => setPageInput(e.target.value)}
               onBlur={() => setIsEditingPage(false)}
               autoFocus
               className="w-10 text-center text-[12px] px-1 py-0.5 border border-blue-500 rounded bg-blue-50/50 font-mono text-slate-800 focus:outline-hidden"
             />
             <span className="text-slate-500 ml-1">/ {activeTab.pageCount} 页</span>
-            {pageError&&<span role="alert" className="ml-2 text-red-600">{pageError}</span>}
+            {pageError && (
+              <span role="alert" className="ml-2 text-red-600">
+                {pageError}
+              </span>
+            )}
           </form>
         ) : (
           <button
@@ -121,7 +124,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       {/* Right: Status by Priority (Image 1, 2, 4) */}
       <div className="flex items-center space-x-2">
         {/* Priority 1: OCR In Progress (Image 4) */}
-        {saveState==='error'?<span role="status" data-testid="save-state" className="text-red-700">保存失败</span>:activeTab.ocrStatus?.isRecognizing ? (
+        {saveState === 'error' ? (
+          <span role="status" data-testid="save-state" className="text-red-700">
+            保存失败
+          </span>
+        ) : activeTab.ocrStatus?.isRecognizing ? (
           <div className="flex items-center space-x-2 text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
             <Scan className="w-3 h-3 animate-spin" />
             <span className="font-medium text-[11.5px]">
@@ -145,7 +152,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               </button>
             )}
           </div>
-        ) : saveState&&saveState!=='saved'?<span role="status" data-testid="save-state" className="text-amber-700">{saveState==='pending'?'待保存':'保存中…'}</span>:isSaved ? (
+        ) : saveState && saveState !== 'saved' ? (
+          <span role="status" data-testid="save-state" className="text-amber-700">
+            {saveState === 'pending' ? '待保存' : '保存中…'}
+          </span>
+        ) : isSaved ? (
           /* Priority 2: Auto-save Completed (Image 2) */
           <div className="flex items-center space-x-1.5 text-green-600 font-medium">
             <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />

@@ -36,7 +36,14 @@ import { ToolRail } from '../ui/ToolRail';
 import { ToastBanner } from '../ui/primitives/ToastBanner';
 
 const textCache = new ByteLru<string, PageText>(16 * 1024 * 1024);
-const estimate: PageInfo = { page: 1, pageBox: [0, 0, 595, 842], width: 595, height: 842, rotate: 0, userUnit: 1 };
+const estimate: PageInfo = {
+  page: 1,
+  pageBox: [0, 0, 595, 842],
+  width: 595,
+  height: 842,
+  rotate: 0,
+  userUnit: 1,
+};
 
 export function DocumentReader({
   session,
@@ -59,29 +66,27 @@ export function DocumentReader({
     setDocument(undefined);
     void pool
       .recover()
-      .then(() => setRetry((n) => n + 1))
+      .then(() => setRetry(n => n + 1))
       .catch(() => setError('阅读器重建失败，请关闭文档后重试。'));
   }, [pool]);
 
   useEffect(() => {
     const abort = new AbortController();
     let release: (() => void) | undefined;
-    void pool
-      .acquire(session.handle.docId, prompt, abort.signal)
-      .then(
-        (lease) => {
-          if (abort.signal.aborted) {
-            lease.release();
-            return;
-          }
-          release = lease.release;
-          setDocument(lease.document);
-          session.store.setState({ pageCount: lease.document.pageCount });
-        },
-        () => {
-          if (!abort.signal.aborted) setError('文档加载失败。可重建阅读器后重试。');
+    void pool.acquire(session.handle.docId, prompt, abort.signal).then(
+      lease => {
+        if (abort.signal.aborted) {
+          lease.release();
+          return;
         }
-      );
+        release = lease.release;
+        setDocument(lease.document);
+        session.store.setState({ pageCount: lease.document.pageCount });
+      },
+      () => {
+        if (!abort.signal.aborted) setError('文档加载失败。可重建阅读器后重试。');
+      },
+    );
     return () => {
       abort.abort();
       release?.();
@@ -106,7 +111,10 @@ export function DocumentReader({
   }
   if (!document) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8 canvas-backdrop text-sm text-slate-500" role="status">
+      <div
+        className="flex-1 flex items-center justify-center p-8 canvas-backdrop text-sm text-slate-500"
+        role="status"
+      >
         正在加载文档…
       </div>
     );
@@ -135,7 +143,7 @@ function ReaderBody({
   page: number;
   recover: () => void;
 }) {
-  const settings = useStore(appStore, (s) => s.settings);
+  const settings = useStore(appStore, s => s.settings);
   const [chatWidth, setChatWidth] = useState(appStore.getState().settings.chatWidth);
   const [chatCollapsed, setChatCollapsed] = useState(window.innerWidth < 1000);
   const [narrow, setNarrow] = useState(window.innerWidth < 1000);
@@ -221,8 +229,8 @@ function ReaderBody({
 
   const clicks = useRef({ time: 0, x: 0, y: 0, count: 0 });
   const hitIndexes = useMemo(
-    () => new Map(Object.values(texts).map((text) => [text.page, new HitIndex(text)])),
-    [texts]
+    () => new Map(Object.values(texts).map(text => [text.page, new HitIndex(text)])),
+    [texts],
   );
 
   const stopDrag = useCallback((clear = false) => {
@@ -249,14 +257,22 @@ function ReaderBody({
         ? Math.min((size.width - 48) / base.width, (size.height - 40) / base.height)
         : state.scale;
 
-  const annotations = useAnnotations(session, services, scroller, infos, scale, state.rotation, setNotice);
-  const selectedAnnotation = state.annotations.find((a) => a.id === state.selectedId);
+  const annotations = useAnnotations(
+    session,
+    services,
+    scroller,
+    infos,
+    scale,
+    state.rotation,
+    setNotice,
+  );
+  const selectedAnnotation = state.annotations.find(a => a.id === state.selectedId);
   const [regionAsk, setRegionAsk] = useState(false);
   const [flash, setFlash] = useState<{ page: number; quads: Quad[] }>();
   const [textVersion, setTextVersion] = useState(0);
   const [ocrProgress, setOcrProgress] = useState(session.text?.store.getState());
 
-  useEffect(() => session.text?.store.subscribe((next) => setOcrProgress(next)), [session]);
+  useEffect(() => session.text?.store.subscribe(next => setOcrProgress(next)), [session]);
   useEffect(
     () =>
       session.text?.store.subscribe((next, old) => {
@@ -265,13 +281,15 @@ function ReaderBody({
           const selected = selectionRef.current;
           if (
             selected &&
-            Object.keys(selected.revisions).some((p) => next.pages[Number(p)] !== old.pages[Number(p)])
+            Object.keys(selected.revisions).some(
+              p => next.pages[Number(p)] !== old.pages[Number(p)],
+            )
           ) {
             stopDrag(true);
           }
         }
       }),
-    [session, stopDrag]
+    [session, stopDrag],
   );
 
   const layout = useMemo(() => {
@@ -285,12 +303,15 @@ function ReaderBody({
     });
   }, [document, infos, scale, state.rotation]);
 
-  const firstVisible = Math.max(0, layout.findIndex((l) => l.top + l.height >= scroll));
+  const firstVisible = Math.max(
+    0,
+    layout.findIndex(l => l.top + l.height >= scroll),
+  );
   const lastVisible = Math.max(
     firstVisible,
-    layout.findIndex((l) => l.top > scroll + size.height) === -1
+    layout.findIndex(l => l.top > scroll + size.height) === -1
       ? layout.length - 1
-      : layout.findIndex((l) => l.top > scroll + size.height) - 1
+      : layout.findIndex(l => l.top > scroll + size.height) - 1,
   );
   const start = Math.max(0, firstVisible - 2);
   const end = Math.min(document.pageCount - 1, lastVisible + 2);
@@ -298,7 +319,8 @@ function ReaderBody({
 
   useEffect(() => {
     const element = scroller.current!;
-    const resize = () => setSize({ width: element.clientWidth, height: element.clientHeight, dpr: devicePixelRatio });
+    const resize = () =>
+      setSize({ width: element.clientWidth, height: element.clientHeight, dpr: devicePixelRatio });
     const observer = new ResizeObserver(resize);
     observer.observe(element);
     window.addEventListener('resize', resize);
@@ -326,7 +348,7 @@ function ReaderBody({
     let active = true;
     void document
       .getOutline()
-      .then((v) => {
+      .then(v => {
         if (active) setOutline(v);
       })
       .catch(() => {});
@@ -340,14 +362,16 @@ function ReaderBody({
     void (async () => {
       const order = [
         ...pages,
-        ...Array.from({ length: document.pageCount }, (_, i) => i + 1).filter((p) => !pages.includes(p)),
+        ...Array.from({ length: document.pageCount }, (_, i) => i + 1).filter(
+          p => !pages.includes(p),
+        ),
       ];
       for (const p of order) {
         if (!active) return;
         if (infos[p]) continue;
         const pageInfo = await document.getPageInfo(p);
-        if (active) setInfos((old) => ({ ...old, [p]: pageInfo }));
-        if (p % 10 === 0) await new Promise((r) => setTimeout(r, 0));
+        if (active) setInfos(old => ({ ...old, [p]: pageInfo }));
+        if (p % 10 === 0) await new Promise(r => setTimeout(r, 0));
       }
     })().catch(() => {
       if (active) setNotice('部分页面尺寸加载失败');
@@ -364,7 +388,10 @@ function ReaderBody({
     let ratio = state.anchorRatio;
     if (!initial.current && layoutRef.current.length) {
       const old = layoutRef.current;
-      const index = Math.max(0, old.findIndex((l) => l.top + l.height >= element.scrollTop));
+      const index = Math.max(
+        0,
+        old.findIndex(l => l.top + l.height >= element.scrollTop),
+      );
       page = index + 1;
       ratio = (element.scrollTop - old[index].top) / old[index].height;
     }
@@ -392,19 +419,21 @@ function ReaderBody({
       }
       return result;
     },
-    [session, services, textVersion]
+    [session, services, textVersion],
   );
 
   useEffect(() => {
     const abort = new AbortController();
     if (!services.capabilities.nativeText) return;
-    setTexts((old) => Object.fromEntries(Object.entries(old).filter(([page]) => pages.includes(Number(page)))));
+    setTexts(old =>
+      Object.fromEntries(Object.entries(old).filter(([page]) => pages.includes(Number(page)))),
+    );
     const timer = setTimeout(() => {
       void (async () => {
         for (const page of pages) {
           try {
             const value = await getText(page, abort.signal);
-            if (!abort.signal.aborted) setTexts((old) => ({ ...old, [page]: value }));
+            if (!abort.signal.aborted) setTexts(old => ({ ...old, [page]: value }));
           } catch {
             if (abort.signal.aborted) return;
           }
@@ -437,10 +466,15 @@ function ReaderBody({
       setCoverage({ searched: 0, unavailable: 0 });
       return;
     }
-    search.run(query, document.pageCount, getText, (_hits, searched, unavailable, _queryId, nextCounts) => {
-      setCounts(nextCounts);
-      setCoverage({ searched, unavailable });
-    });
+    search.run(
+      query,
+      document.pageCount,
+      getText,
+      (_hits, searched, unavailable, _queryId, nextCounts) => {
+        setCounts(nextCounts);
+        setCoverage({ searched, unavailable });
+      },
+    );
     return () => search.cancel();
   }, [query, find, document, getText, search]);
 
@@ -457,7 +491,7 @@ function ReaderBody({
         session.store.setState({ page, anchorRatio: 0 });
       }
     },
-    [document, layout, session]
+    [document, layout, session],
   );
 
   useEffect(() => {
@@ -494,7 +528,7 @@ function ReaderBody({
         }
         clearTimeout(timer);
         timer = setTimeout(() => setFlash(undefined), 1800);
-      })().catch((e) => {
+      })().catch(e => {
         if (!signal.aborted) setNotice(String(e));
       });
     });
@@ -508,9 +542,9 @@ function ReaderBody({
   const moveMatch = useCallback(
     (delta: number) => {
       if (!totalMatches) return;
-      setMatch((old) => (old + delta + totalMatches) % totalMatches);
+      setMatch(old => (old + delta + totalMatches) % totalMatches);
     },
-    [totalMatches]
+    [totalMatches],
   );
 
   useEffect(() => {
@@ -527,7 +561,7 @@ function ReaderBody({
       offset -= counts[page - 1];
     }
     void getText(page, abort.signal)
-      .then((text) => {
+      .then(text => {
         if (abort.signal.aborted) return;
         const matches = searchPage(text, query);
         setHits(matches);
@@ -595,7 +629,13 @@ function ReaderBody({
             ? { fit: 'width' }
             : e.key === '2'
               ? { fit: 'page' }
-              : { fit: 'manual', scale: e.key === '0' ? 1 : Math.max(0.1, Math.min(5, scale * (e.key === '-' ? 0.8 : 1.25))) }
+              : {
+                  fit: 'manual',
+                  scale:
+                    e.key === '0'
+                      ? 1
+                      : Math.max(0.1, Math.min(5, scale * (e.key === '-' ? 0.8 : 1.25))),
+                },
         );
         return;
       }
@@ -604,9 +644,16 @@ function ReaderBody({
         jump(Math.max(1, Math.min(document.pageCount, state.page + (e.key === 'PageUp' ? -1 : 1))));
         return;
       }
-      if (!input && annotations.editable && (e.ctrlKey || e.metaKey) && ['z', 'y'].includes(e.key.toLowerCase())) {
+      if (
+        !input &&
+        annotations.editable &&
+        (e.ctrlKey || e.metaKey) &&
+        ['z', 'y'].includes(e.key.toLowerCase())
+      ) {
         e.preventDefault();
-        void (e.key.toLowerCase() === 'y' || e.shiftKey ? session.redo() : session.undo()).catch(annotations.fail);
+        void (e.key.toLowerCase() === 'y' || e.shiftKey ? session.redo() : session.undo()).catch(
+          annotations.fail,
+        );
         return;
       }
       if (
@@ -632,7 +679,12 @@ function ReaderBody({
         stopDrag(true);
         annotations.cancel();
         session.store.setState({ selectedId: undefined });
-      } else if (!input && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && selectionRef.current) {
+      } else if (
+        !input &&
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === 'c' &&
+        selectionRef.current
+      ) {
         e.preventDefault();
         void copy().catch(() => setNotice('复制失败，请重试'));
       }
@@ -646,7 +698,18 @@ function ReaderBody({
       window.removeEventListener('keydown', key);
       window.removeEventListener('blur', blur);
     };
-  }, [find, moveMatch, copy, stopDrag, state.selectedId, state.editor, state.page, scale, jump, annotations.editable]);
+  }, [
+    find,
+    moveMatch,
+    copy,
+    stopDrag,
+    state.selectedId,
+    state.editor,
+    state.page,
+    scale,
+    jump,
+    annotations.editable,
+  ]);
 
   const hit = useCallback(
     (x: number, y: number): TextPosition | undefined => {
@@ -654,7 +717,7 @@ function ReaderBody({
       if (!element) return;
       const bounds = element.getBoundingClientRect();
       const position = y - bounds.top + element.scrollTop;
-      let index = layout.findIndex((l) => position <= l.top + l.height);
+      let index = layout.findIndex(l => position <= l.top + l.height);
       if (index < 0) index = layout.length - 1;
       const page = index + 1;
       const text = texts[page];
@@ -662,27 +725,30 @@ function ReaderBody({
       if (!text || text.quality === 'unavailable' || !pageInfo) return;
       const box = element.querySelector(`[data-page="${page}"]`)?.getBoundingClientRect();
       if (!box) return;
-      return { page, offset: hitIndexes.get(page)!.hit(clientToPage(pageInfo, scale, state.rotation, box, x, y)) };
+      return {
+        page,
+        offset: hitIndexes.get(page)!.hit(clientToPage(pageInfo, scale, state.rotation, box, x, y)),
+      };
     },
-    [layout, texts, infos, scale, state.rotation, hitIndexes]
+    [layout, texts, infos, scale, state.rotation, hitIndexes],
   );
 
   const extend = useCallback(
     (x: number, y: number) => {
       const position = hit(x, y);
       if (position) {
-        setSelection((old) =>
+        setSelection(old =>
           old
             ? {
                 ...old,
                 focus: position,
                 revisions: { ...old.revisions, [position.page]: texts[position.page].textRevision },
               }
-            : old
+            : old,
         );
       }
     },
-    [hit, texts]
+    [hit, texts],
   );
 
   useEffect(() => {
@@ -710,8 +776,11 @@ function ReaderBody({
   }, [extend]);
 
   const visibleMatches = useMemo(
-    () => Object.fromEntries(Object.values(texts).map((text) => [text.page, find && query ? searchPage(text, query) : []])),
-    [texts, find, query]
+    () =>
+      Object.fromEntries(
+        Object.values(texts).map(text => [text.page, find && query ? searchPage(text, query) : []]),
+      ),
+    [texts, find, query],
   );
 
   const copyPosition = useMemo(() => {
@@ -721,8 +790,10 @@ function ReaderBody({
     const pageInfo = infos[page];
     const item = layout[page - 1];
     if (!text || !pageInfo || !item) return { top: 16, right: 20 };
-    const span = text.spans.find((s) => selection.focus.offset > s.range.start && selection.focus.offset <= s.range.end);
-    const glyph = text.glyphs.find((g) => span?.glyphIds.includes(g.id));
+    const span = text.spans.find(
+      s => selection.focus.offset > s.range.start && selection.focus.offset <= s.range.end,
+    );
+    const glyph = text.glyphs.find(g => span?.glyphIds.includes(g.id));
     if (!glyph) return { top: 16, right: 20 };
     const [x, y] = point(viewport(pageInfo, scale, state.rotation).transform, [
       (glyph.quad[0] + glyph.quad[4]) / 2,
@@ -741,9 +812,14 @@ function ReaderBody({
       return range ? rangeQuads(text, [range]) : [];
     }
     if (type === 'current') return currentHit?.page === page ? currentHit.quads : [];
-    return (visibleMatches[page] ?? hits.filter((h) => h.page === page))
-      .filter((h) => !currentHit || h.page !== currentHit.page || h.ranges[0].start !== currentHit.ranges[0].start)
-      .flatMap((h) => h.quads);
+    return (visibleMatches[page] ?? hits.filter(h => h.page === page))
+      .filter(
+        h =>
+          !currentHit ||
+          h.page !== currentHit.page ||
+          h.ranges[0].start !== currentHit.ranges[0].start,
+      )
+      .flatMap(h => h.quads);
   };
 
   const tab = {
@@ -760,14 +836,19 @@ function ReaderBody({
       ? {
           isRecognizing:
             ocrProgress.all ||
-            Object.values(ocrProgress.pages).some((p) => p.phase === 'running' || p.phase === 'queued'),
+            Object.values(ocrProgress.pages).some(
+              p => p.phase === 'running' || p.phase === 'queued',
+            ),
           currentPage: ocrProgress.all
             ? ocrProgress.completed
-            : Object.values(ocrProgress.pages).filter((p) => p.phase === 'ready' || p.phase === 'empty').length,
+            : Object.values(ocrProgress.pages).filter(
+                p => p.phase === 'ready' || p.phase === 'empty',
+              ).length,
           totalPage: document.pageCount,
           unrecognizedPages:
             document.pageCount -
-            Object.values(ocrProgress.pages).filter((p) => p.phase === 'ready' || p.phase === 'empty').length,
+            Object.values(ocrProgress.pages).filter(p => p.phase === 'ready' || p.phase === 'empty')
+              .length,
         }
       : undefined,
   };
@@ -776,7 +857,7 @@ function ReaderBody({
 
   const handleSelectTool = (tool: ToolType) => {
     if (tool === 'regionAsk') {
-      setRegionAsk((v) => !v);
+      setRegionAsk(v => !v);
       stopDrag(true);
       return;
     }
@@ -799,16 +880,16 @@ function ReaderBody({
         currentTool={effectiveTool}
         onSelectTool={handleSelectTool}
         currentColor={annotations.style.color}
-        onSelectColor={(color) => annotations.setStyle({ color })}
+        onSelectColor={color => annotations.setStyle({ color })}
         strokeWidth={annotations.style.strokeWidth}
-        onStrokeWidthChange={(strokeWidth) => annotations.setStyle({ strokeWidth })}
+        onStrokeWidthChange={strokeWidth => annotations.setStyle({ strokeWidth })}
         opacity={annotations.style.opacity}
-        onOpacityChange={(opacity) => annotations.setStyle({ opacity })}
+        onOpacityChange={opacity => annotations.setStyle({ opacity })}
         scale={scale}
-        onScaleChange={(nextScale) => session.store.setState({ scale: nextScale, fit: 'manual' })}
+        onScaleChange={nextScale => session.store.setState({ scale: nextScale, fit: 'manual' })}
         rotation={state.rotation}
         onRotate={() => session.store.setState({ rotation: (state.rotation + 90) % 360 })}
-        onToggleSearch={() => setFind((v) => !v)}
+        onToggleSearch={() => setFind(v => !v)}
         isSearchOpen={find}
         canUndo={annotations.editable && state.undoCount > 0}
         canRedo={annotations.editable && state.redoCount > 0}
@@ -835,7 +916,7 @@ function ReaderBody({
       <div className="flex-1 min-h-0 flex relative overflow-hidden">
         <ToolRail
           activePanel={panel}
-          onTogglePanel={(next) => choosePanel(panel === next ? 'none' : next)}
+          onTogglePanel={next => choosePanel(panel === next ? 'none' : next)}
           onSelectPointer={() => {
             setRegionAsk(false);
             annotations.setTool('select');
@@ -910,7 +991,12 @@ function ReaderBody({
                 </ToastBanner>
               )}
               {notice && (
-                <ToastBanner tone="warning" role="alert" className="pointer-events-auto" onClose={() => setNotice('')}>
+                <ToastBanner
+                  tone="warning"
+                  role="alert"
+                  className="pointer-events-auto"
+                  onClose={() => setNotice('')}
+                >
                   {notice}
                 </ToastBanner>
               )}
@@ -923,25 +1009,33 @@ function ReaderBody({
             data-testid="reader-scroll"
             className="absolute inset-0 overflow-auto canvas-backdrop outline-none"
             style={{ touchAction: 'none', userSelect: 'none' }}
-            onScroll={(e) => {
+            onScroll={e => {
               const top = e.currentTarget.scrollTop;
               setScroll(top);
               if (!restoring.current) {
-                const index = Math.max(0, layout.findIndex((l) => l.top + l.height >= top));
+                const index = Math.max(
+                  0,
+                  layout.findIndex(l => l.top + l.height >= top),
+                );
                 session.store.setState({
                   page: index + 1,
                   anchorRatio: (top - layout[index].top) / layout[index].height,
                 });
               }
             }}
-            onPointerDown={(e) => {
+            onPointerDown={e => {
               e.currentTarget.focus({ preventScroll: true });
               if (annotations.down(e)) {
                 e.preventDefault();
                 stopDrag(true);
                 return;
               }
-              if ((state.tool !== 'select' && state.tool !== 'highlight' && state.tool !== 'underline') || state.editor) {
+              if (
+                (state.tool !== 'select' &&
+                  state.tool !== 'highlight' &&
+                  state.tool !== 'underline') ||
+                state.editor
+              ) {
                 return;
               }
               if (e.button !== 0) return;
@@ -954,13 +1048,15 @@ function ReaderBody({
               const previous = clicks.current;
               const now = performance.now();
               const count =
-                now - previous.time < 450 && Math.hypot(e.clientX - previous.x, e.clientY - previous.y) < 5
+                now - previous.time < 450 &&
+                Math.hypot(e.clientX - previous.x, e.clientY - previous.y) < 5
                   ? (previous.count % 3) + 1
                   : 1;
               clicks.current = { time: now, x: e.clientX, y: e.clientY, count };
               const range =
                 count >= 3
-                  ? text.lines.find((l) => pos.offset >= l.range.start && pos.offset <= l.range.end)?.range
+                  ? text.lines.find(l => pos.offset >= l.range.start && pos.offset <= l.range.end)
+                      ?.range
                   : count === 2
                     ? wordRange(text.text, pos.offset)
                     : undefined;
@@ -970,17 +1066,17 @@ function ReaderBody({
                 revisions: { [pos.page]: text.textRevision },
               });
             }}
-            onPointerMove={(e) => {
+            onPointerMove={e => {
               if (annotations.move(e)) return;
               if (drag.current?.pointer !== e.pointerId) return;
               drag.current = { pointer: e.pointerId, x: e.clientX, y: e.clientY };
               extend(e.clientX, e.clientY);
             }}
-            onPointerUp={(e) => {
+            onPointerUp={e => {
               if (annotations.up(e)) return;
               if (drag.current?.pointer === e.pointerId) {
                 stopDrag();
-                setSelection((old) => (old ? { ...old } : old));
+                setSelection(old => (old ? { ...old } : old));
                 if (state.tool === 'highlight' || state.tool === 'underline') {
                   void annotations
                     .annotate(selectionRef.current, getText, state.tool)
@@ -998,17 +1094,19 @@ function ReaderBody({
               style={{
                 position: 'relative',
                 height: layout.at(-1)!.top + Math.max(layout.at(-1)!.height + 20, size.height),
-                minWidth: Math.max(size.width, ...layout.map((l) => l.width + 40)),
+                minWidth: Math.max(size.width, ...layout.map(l => l.width + 40)),
               }}
             >
-              {pages.map((page) => {
+              {pages.map(page => {
                 const item = layout[page - 1];
                 const pageInfo = infos[page];
-                const values = state.annotations.filter((a) => a.page === page && a.id !== annotations.preview?.id);
+                const values = state.annotations.filter(
+                  a => a.page === page && a.id !== annotations.preview?.id,
+                );
                 if (annotations.preview?.page === page) {
                   const original = annotations.gesture.current?.original;
                   if (original) {
-                    const i = values.findIndex((a) => a.id === original.id);
+                    const i = values.findIndex(a => a.id === original.id);
                     if (i >= 0) values.splice(i, 1);
                   }
                   values.push(annotations.preview);
@@ -1031,7 +1129,11 @@ function ReaderBody({
                         scale={scale}
                         rotation={state.rotation}
                         dpr={size.dpr}
-                        priority={page >= firstVisible + 1 && page <= lastVisible + 1 ? 0 : 10 + Math.abs(page - state.page)}
+                        priority={
+                          page >= firstVisible + 1 && page <= lastVisible + 1
+                            ? 0
+                            : 10 + Math.abs(page - state.page)
+                        }
                         selection={paint(page, 'selection')}
                         matches={paint(page, 'matches')}
                         current={flash?.page === page ? flash.quads : paint(page, 'current')}
@@ -1075,7 +1177,9 @@ function ReaderBody({
                 : undefined
             }
             unrecognizedPages={tab.ocrStatus?.unrecognizedPages}
-            onRecognizeAll={session.text ? () => void session.text!.all(document.pageCount) : undefined}
+            onRecognizeAll={
+              session.text ? () => void session.text!.all(document.pageCount) : undefined
+            }
           />
 
           {selectedAnnotation && annotations.editable && (
@@ -1085,7 +1189,9 @@ function ReaderBody({
               fail={annotations.fail}
               onEdit={() => annotations.edit(selectedAnnotation)}
               onReanchor={() => {
-                annotations.setTool(selectedAnnotation.type === 'underline' ? 'underline' : 'highlight');
+                annotations.setTool(
+                  selectedAnnotation.type === 'underline' ? 'underline' : 'highlight',
+                );
                 annotations.reanchor.current = selectedAnnotation.id;
                 setSelection(undefined);
                 setNotice('请重新拖选文字，完成后会替换原标注组');
@@ -1095,7 +1201,7 @@ function ReaderBody({
                   ? () =>
                       session.chat!.source(
                         selectedAnnotation.llmRef!.conversationId,
-                        selectedAnnotation.llmRef!.messageId
+                        selectedAnnotation.llmRef!.messageId,
                       )
                   : undefined
               }
@@ -1192,14 +1298,26 @@ function ReaderBody({
             </div>
           )}
 
-          {state.editor && <AnnotationEditor key={state.editor.annotation.id} session={session} fail={annotations.fail} />}
+          {state.editor && (
+            <AnnotationEditor
+              key={state.editor.annotation.id}
+              session={session}
+              fail={annotations.fail}
+            />
+          )}
         </div>
 
         {/* Right AI Chat Panel or Compact Floating AI Pill */}
         {session.chat && (
           <>
             {!chatCollapsed ? (
-              <div className={narrow ? 'absolute right-0 top-0 bottom-0 z-40 flex bg-white shadow-2xl' : 'flex min-h-0'}>
+              <div
+                className={
+                  narrow
+                    ? 'absolute right-0 top-0 bottom-0 z-40 flex bg-white shadow-2xl'
+                    : 'flex min-h-0'
+                }
+              >
                 <Splitter
                   onMouseDown={startSplit}
                   onDoubleClick={() => {
@@ -1209,7 +1327,11 @@ function ReaderBody({
                   }}
                   isDragging={splitting}
                 />
-                <LiveChatPanel chat={session.chat} width={chatWidth} onCollapse={() => setChatCollapsed(true)} />
+                <LiveChatPanel
+                  chat={session.chat}
+                  width={chatWidth}
+                  onCollapse={() => setChatCollapsed(true)}
+                />
               </div>
             ) : (
               <button
@@ -1237,9 +1359,11 @@ function ReaderBody({
         activeTab={tab}
         onPageChange={jump}
         scale={scale}
-        onScaleChange={(nextScale) => session.store.setState({ scale: nextScale, fit: 'manual' })}
+        onScaleChange={nextScale => session.store.setState({ scale: nextScale, fit: 'manual' })}
         isSaved={!state.editor && state.saveState === 'saved'}
-        saveState={state.saveState === 'error' ? 'error' : state.editor ? 'pending' : state.saveState}
+        saveState={
+          state.saveState === 'error' ? 'error' : state.editor ? 'pending' : state.saveState
+        }
         onCancelOcr={() => session.text?.cancel()}
       />
     </main>

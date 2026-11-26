@@ -1,0 +1,59 @@
+# EditorConfig for DocAss
+root = true
+
+# All files
+[*]
+charset = utf-8
+end_of_line = crlf
+trim_trailing_whitespace = true
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+
+# C# source files
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# Organize usings
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Code style: 'var' preferences
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion
+
+# Code style: expression-bodied members
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_constructors = false:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+
+# Formatting: new lines
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+
+# Formatting: spaces
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_around_binary_operators = before_and_after
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_after_colon_in_inheritance_clause = true
+csharp_space_around_declaration_statements = false
+csharp_space_between_empty_square_brackets = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+
+# Web and Config files (TS, TSX, JS, JSON, CSS, YAML, MD)
+[*.{ts,tsx,js,jsx,mjs,cjs,json,css,html,yaml,yml,md}]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+
+# Generated code ignores
+[*{.g.cs,validators.js,validators.d.ts}]
+generated_code = true

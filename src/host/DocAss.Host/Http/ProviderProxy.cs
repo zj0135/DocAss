@@ -10,7 +10,7 @@ using DocAss.Host.Settings;
 namespace DocAss.Host.Http;
 
 // Credentials and immutable run configurations never cross the bridge.
-public sealed class ProviderProxy(SettingsService settings) : IDisposable
+public sealed class ProviderProxy(SettingsService settings) : IProviderProxy
 {
     private sealed record Snapshot(JsonElement Provider, JsonElement Model, byte[] Key);
     private readonly ConcurrentDictionary<string, Snapshot> runs = new();
@@ -25,7 +25,7 @@ public sealed class ProviderProxy(SettingsService settings) : IDisposable
         if (model.ValueKind == JsonValueKind.Undefined) throw new AppException("UNCONFIGURED", "请选择已配置的模型");
         var key = await KeyAsync(provider, null);
         // Queued runs reserve immutable configuration; LoopbackServer limits active HTTP requests to two.
-        lock(gate)if (runs.Count >= 16 || !runs.TryAdd(runId, new(provider, model, key))) { CryptographicOperations.ZeroMemory(key); throw new AppException("BUSY", "生成及排队任务已满", true); }
+        lock (gate) if (runs.Count >= 16 || !runs.TryAdd(runId, new(provider, model, key))) { CryptographicOperations.ZeroMemory(key); throw new AppException("BUSY", "生成及排队任务已满", true); }
         return provider;
     }
     private async Task<byte[]> KeyAsync(JsonElement provider, string? replacement)
@@ -40,8 +40,9 @@ public sealed class ProviderProxy(SettingsService settings) : IDisposable
     {
         Contract.Check("Provider", provider);
         var api = provider.GetProperty("api").GetString();
-        if(api=="anthropic-messages"&&suffix.EndsWith("?beta=true",StringComparison.Ordinal))suffix=suffix[..^10];
-        var valid = api switch {
+        if (api == "anthropic-messages" && suffix.EndsWith("?beta=true", StringComparison.Ordinal)) suffix = suffix[..^10];
+        var valid = api switch
+        {
             "openai-completions" => suffix == "chat/completions",
             "openai-responses" => suffix == "responses",
             "anthropic-messages" => suffix == "v1/messages" || suffix == "messages",
@@ -60,7 +61,8 @@ public sealed class ProviderProxy(SettingsService settings) : IDisposable
         request.Content = new ByteArrayContent(body); request.Content.Headers.ContentType = new("application/json");
         request.Headers.Accept.ParseAdd("text/event-stream");
         var key = Encoding.UTF8.GetString(run.Key);
-        switch (run.Provider.GetProperty("api").GetString()) {
+        switch (run.Provider.GetProperty("api").GetString())
+        {
             case "anthropic-messages": request.Headers.TryAddWithoutValidation("x-api-key", key); request.Headers.Add("anthropic-version", "2023-06-01"); break;
             case "google-generative-ai": request.Headers.TryAddWithoutValidation("x-goog-api-key", key); break;
             default: if (key.Length > 0) request.Headers.Authorization = new("Bearer", key); break;
@@ -79,9 +81,11 @@ public sealed class ProviderProxy(SettingsService settings) : IDisposable
         using var request = Request(run, suffix, body);
         return await SendCheckedAsync(request, token);
     }
-    private static bool ContainsImage(JsonElement v) => v.ValueKind switch {
+    private static bool ContainsImage(JsonElement v) => v.ValueKind switch
+    {
         JsonValueKind.Object => v.EnumerateObject().Any(p => p.Name is "image_url" or "inlineData" or "inline_data" || p.Name == "type" && p.Value.ValueKind == JsonValueKind.String && p.Value.GetString() is "image" or "input_image" || ContainsImage(p.Value)),
-        JsonValueKind.Array => v.EnumerateArray().Any(ContainsImage), _ => false
+        JsonValueKind.Array => v.EnumerateArray().Any(ContainsImage),
+        _ => false
     };
     private async Task<HttpResponseMessage> SendCheckedAsync(HttpRequestMessage request, CancellationToken token)
     {
@@ -100,19 +104,22 @@ public sealed class ProviderProxy(SettingsService settings) : IDisposable
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(token); cancel.CancelAfter(TimeSpan.FromSeconds(15));
         var id = model.GetProperty("modelId").GetString()!; var api = provider.GetProperty("api").GetString();
         var suffix = api switch { "openai-completions" => "chat/completions", "openai-responses" => "responses", "anthropic-messages" => "messages", _ => $"models/{id}:streamGenerateContent?alt=sse" };
-        object body = api switch {
+        object body = api switch
+        {
             "openai-completions" => new { model = id, messages = new[] { new { role = "user", content = "Reply OK" } }, max_tokens = 8, stream = true },
             "openai-responses" => new { model = id, input = "Reply OK", max_output_tokens = 16, stream = true },
             "anthropic-messages" => new { model = id, messages = new[] { new { role = "user", content = "Reply OK" } }, max_tokens = 8, stream = true },
             _ => new { contents = new[] { new { role = "user", parts = new[] { new { text = "Reply OK" } } } }, generationConfig = new { maxOutputTokens = 8 } }
         };
-        try {
+        try
+        {
             using var request = Request(new(provider, model, key), suffix, Encoding.UTF8.GetBytes(Json.String(body)));
             using var response = await SendCheckedAsync(request, cancel.Token);
             var bytes = await BoundedRead.ReadAsync(await response.Content.ReadAsStreamAsync(cancel.Token), 256 * 1024, cancel.Token);
             Contract.Require(bytes.Length > 0, "模型服务返回空响应");
             return new { ok = true, message = "连接成功（最小无文档请求）", maxOutputTokens = api == "openai-responses" ? 16 : 8 };
-        } catch (OperationCanceledException) when (!token.IsCancellationRequested) { throw new AppException("TIMEOUT", "连接测试超过 15 秒", true); }
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested) { throw new AppException("TIMEOUT", "连接测试超过 15 秒", true); }
         finally { CryptographicOperations.ZeroMemory(key); }
     }
     public void Dispose() { foreach (var id in runs.Keys) End(id); client.Dispose(); }

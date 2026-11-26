@@ -30,10 +30,7 @@ function renderIcon(a: Annotation) {
       );
     case 'underline':
       return (
-        <div
-          className="w-3.5 h-1 border-b-2 flex-shrink-0"
-          style={{ borderColor: a.color }}
-        />
+        <div className="w-3.5 h-1 border-b-2 flex-shrink-0" style={{ borderColor: a.color }} />
       );
     case 'note':
       return <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" style={{ color: a.color }} />;
@@ -81,9 +78,9 @@ export function AnnotationList({
           (a.migrationState === 'needsReview' ? 1 : 0) -
             (b.migrationState === 'needsReview' ? 1 : 0) ||
           a.page - b.page ||
-          a.createdAt.localeCompare(b.createdAt)
+          a.createdAt.localeCompare(b.createdAt),
       ),
-    [annotations]
+    [annotations],
   );
 
   useEffect(() => {
@@ -94,9 +91,13 @@ export function AnnotationList({
   }, []);
 
   useEffect(() => {
-    const index = items.findIndex((a) => a.id === selectedAnnotationId);
+    const index = items.findIndex(a => a.id === selectedAnnotationId);
     const el = ref.current;
-    if (el && index >= 0 && (index * 72 < el.scrollTop || index * 72 + 72 > el.scrollTop + height)) {
+    if (
+      el &&
+      index >= 0 &&
+      (index * 72 < el.scrollTop || index * 72 + 72 > el.scrollTop + height)
+    ) {
       el.scrollTop = index * 72;
     }
   }, [selectedAnnotationId, items, height]);
@@ -123,7 +124,7 @@ export function AnnotationList({
 
       <div
         ref={ref}
-        onScroll={(e) => setTop(e.currentTarget.scrollTop)}
+        onScroll={e => setTop(e.currentTarget.scrollTop)}
         className="flex-1 overflow-auto min-h-0 p-2"
         data-testid="annotation-list"
       >
@@ -148,7 +149,13 @@ export function AnnotationList({
                   key={a.id}
                   data-annotation-id={a.id}
                   aria-selected={isSelected}
-                  style={{ position: 'absolute', top: (start + i) * 72, left: 0, right: 0, height: 66 }}
+                  style={{
+                    position: 'absolute',
+                    top: (start + i) * 72,
+                    left: 0,
+                    right: 0,
+                    height: 66,
+                  }}
                   onClick={() => onSelectAnnotation(a.id, a.page)}
                   className={`group flex flex-col justify-center px-2.5 py-2 rounded-lg cursor-pointer transition-all ${
                     isSelected
@@ -182,7 +189,7 @@ export function AnnotationList({
                         className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-slate-400 hover:text-red-500 rounded transition-opacity"
                         aria-label="删除此标注"
                         title="删除标注"
-                        onClick={(e) => onDeleteAnnotation(a.id, e)}
+                        onClick={e => onDeleteAnnotation(a.id, e)}
                       >
                         <Trash2 className="w-3 h-3" />
                         <span className="sr-only">删除</span>
