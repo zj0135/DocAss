@@ -3,8 +3,55 @@ import type {Provider,NativePage,OcrTicket,OcrResult} from '../contracts';
 import {ServiceError} from '../contracts';
 import {buildPageText} from '../text/model';
 import {abortableDelay} from './BrowserServices';
-// @ts-ignore shared protocol fixture, included only in explicit Vite development fixture mode.
-import {events} from '../../../../docs/fixtures/llm-protocols.mjs';
+function events(api: string, text = '第一段中文：测试', tool = false) {
+  const call = { id: 'call_fixture', name: 'get_document_info', arguments: '{}' };
+  if (api === 'openai-completions')
+    return [
+      ...(tool
+        ? [
+            { choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: call.id, type: 'function', function: { name: call.name, arguments: '{' } }] }, finish_reason: null }] },
+            { choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: '}' } }] }, finish_reason: null }] },
+          ]
+        : [...text].map(t => ({ choices: [{ index: 0, delta: { content: t }, finish_reason: null }] }))),
+      { choices: [{ index: 0, delta: {}, finish_reason: tool ? 'tool_calls' : 'stop' }], usage: { prompt_tokens: 12, completion_tokens: 6 } },
+      '[DONE]',
+    ].map(v => (typeof v === 'string' ? `data: ${v}\n\n` : `data: ${JSON.stringify(v)}\n\n`));
+  if (api === 'anthropic-messages') {
+    const values = [
+      { type: 'message_start', message: { id: 'msg_fixture', type: 'message', role: 'assistant', model: 'fixture', content: [], stop_reason: null, usage: { input_tokens: 12, output_tokens: 0 } } },
+      { type: 'content_block_start', index: 0, content_block: tool ? { type: 'tool_use', id: call.id, name: call.name, input: {} } : { type: 'text', text: '' } },
+      ...(tool ? ['{', '}'].map(t => ({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: t } })) : [...text].map(t => ({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: t } }))),
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', delta: { stop_reason: tool ? 'tool_use' : 'end_turn', stop_sequence: null }, usage: { output_tokens: 6 } },
+      { type: 'message_stop' },
+    ];
+    return values.map(v => `event: ${v.type}\ndata: ${JSON.stringify(v)}\n\n`);
+  }
+  if (api === 'google-generative-ai')
+    return (tool
+      ? [{ candidates: [{ content: { role: 'model', parts: [{ functionCall: { id: call.id, name: call.name, args: {} } }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 6, totalTokenCount: 18 } }]
+      : [...text].map((t, i) => ({ candidates: [{ content: { role: 'model', parts: [{ text: t }] }, ...(i === text.length - 1 ? { finishReason: 'STOP' } : {}), index: 0 }], usageMetadata: { promptTokenCount: 12, candidatesTokenCount: i + 1, totalTokenCount: 12 + i + 1 } }))
+    ).map(v => `data: ${JSON.stringify(v)}\n\n`);
+  if (api === 'openai-responses') {
+    const item = tool ? { type: 'function_call', id: 'fc_fixture', call_id: call.id, name: call.name, arguments: '' } : { type: 'message', id: 'msg_fixture', role: 'assistant', content: [], status: 'in_progress' };
+    const final = tool ? { ...item, arguments: '{}', status: 'completed' } : { ...item, content: [{ type: 'output_text', text, annotations: [] }], status: 'completed' };
+    const values = [
+      { type: 'response.created', response: { id: 'resp_fixture', model: 'fixture', status: 'in_progress', output: [] } },
+      { type: 'response.output_item.added', output_index: 0, item },
+      ...(tool
+        ? ['{', '}'].map(t => ({ type: 'response.function_call_arguments.delta', item_id: item.id, output_index: 0, delta: t }))
+        : [
+            { type: 'response.content_part.added', item_id: item.id, output_index: 0, content_index: 0, part: { type: 'output_text', text: '', annotations: [] } },
+            ...[...text].map(t => ({ type: 'response.output_text.delta', item_id: item.id, output_index: 0, content_index: 0, delta: t })),
+            { type: 'response.output_text.done', item_id: item.id, output_index: 0, content_index: 0, text },
+          ]),
+      { type: 'response.output_item.done', output_index: 0, item: final },
+      { type: 'response.completed', response: { id: 'resp_fixture', model: 'fixture', status: 'completed', output: [final], usage: { input_tokens: 12, output_tokens: 6, total_tokens: 18, input_tokens_details: { cached_tokens: 0 }, output_tokens_details: { reasoning_tokens: 0 } } } },
+    ];
+    return values.map(v => `event: ${v.type}\ndata: ${JSON.stringify(v)}\n\n`);
+  }
+  throw Error('unsupported fixture API');
+}
 
 export function fixturePdf(label:string){const words=`DocAss ${label} fixture evidence`,stream=`BT /F1 14 Tf 36 740 Td (${words}) Tj ET`,objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R] /Count 1 >>',`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>`,'<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>',`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`];let text='%PDF-1.4\n',offsets=[0];objects.forEach((o,i)=>{offsets.push(text.length);text+=`${i+1} 0 obj\n${o}\nendobj\n`;});const at=text.length;text+=`xref\n0 6\n0000000000 65535 f \n`+offsets.slice(1).map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+`trailer << /Size 6 /Root 1 0 R >>\nstartxref\n${at}\n%%EOF`;return new File([text],`browser-${label}-fixture.pdf`,{type:'application/pdf'});}
 export function installBrowserFixtures(services:AppServices){

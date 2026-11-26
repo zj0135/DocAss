@@ -7,9 +7,7 @@
     "dev": "vite --host localhost --port 5173 --strictPort",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.6.0",

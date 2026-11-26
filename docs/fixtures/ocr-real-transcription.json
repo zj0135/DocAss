@@ -1,7 +1,0 @@
-{
-  "provenance": "Chinese supplementary transcriptions independently read from source pixels by the implementation agent before OCR. They are not human character-quad annotations or scanned-page G5 evidence.",
-  "samples": [
-    {"image":"11.jpg","category":"Chinese product raster","lines":["纯臻营养护发素","产品信息/参数","（45元/每公斤，100公斤起订）","每瓶22元，1000瓶起订）","【品牌】：代加工方式/OEM ODM","【品名】：纯臻营养护发素","【产品编号】：YM-X-3011","【净含量】：220ml","【适用人群】：适合所有肤质","【主要成分】：鲸蜡硬脂醇、燕麦β-葡聚","糖、椰油酰胺丙基甜菜碱、泛醌","【主要功能】：可紧致头发磷层，从而达到","即时持久改善头发光泽的效果，给干燥的头","发足够的滋养","（成品包材）","ODM OEM"]},
-    {"image":"12.jpg","category":"Chinese low-contrast outdoor photograph","lines":["上海斯格威铂尔曼大酒店","打浦路15号","绿洲仕格维花园公寓","打浦路25 29 35号"]}
-  ]
-}

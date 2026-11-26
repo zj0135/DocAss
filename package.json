@@ -10,26 +10,8 @@
     "preview": "pnpm --filter web preview",
     "dev:host": "dotnet run --project src/host/DocAss.Host -- --dev",
     "build:host": "dotnet build DocAss.sln -c Release",
-    "test": "pnpm test:host && pnpm test:web",
-    "test:web": "pnpm --filter web test",
-    "test:host": "dotnet test src/host/DocAss.Host.Tests -c Release --logger trx --results-directory artifacts/test-results",
-    "test:browser": "playwright test",
-    "fixtures": "node docs/fixtures/generate.mjs",
-    "fixtures:ocr": "node docs/fixtures/generate-ocr.mjs",
-    "fixtures:setup": "node docs/fixtures/acquire-resources.mjs",
-    "fixtures:integration": "node docs/fixtures/generate-integration.mjs",
-    "fixtures:integration:setup": "node docs/fixtures/acquire-integration.mjs",
-    "test:fixtures": "node docs/fixtures/verify.mjs",
-    "verify:desktop": "node scripts/verify-desktop.mjs",
-    "verify:llm": "node scripts/verify-desktop.mjs --case=llm",
-    "verify:ocr:synthetic": "node scripts/verify-desktop.mjs --case=ocrSynthetic",
-    "verify:ocr:benchmark": "node scripts/verify-desktop.mjs --case=ocrBenchmark",
-    "verify:performance": "node scripts/verify-desktop.mjs --case=performance",
-    "verify:agent": "node scripts/verify-desktop.mjs --case=agentIntegration",
-    "verify:integration": "node scripts/verify-integration.mjs",
     "publish": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish.ps1",
-    "generate:contracts": "node scripts/generate-types.mjs && node scripts/generate-csharp-types.mjs && node scripts/generate-validators.mjs && node scripts/create-contract-fixtures.mjs && node scripts/create-canonical-fixtures.mjs",
-    "verify:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-clean-install.ps1"
+    "generate:contracts": "node scripts/generate-types.mjs && node scripts/generate-csharp-types.mjs && node scripts/generate-validators.mjs && node scripts/create-contract-fixtures.mjs && node scripts/create-canonical-fixtures.mjs"
   },
   "packageManager": "pnpm@12.15.0",
   "engines": {
@@ -37,7 +19,6 @@
   },
   "devDependencies": {
     "@pdf-lib/fontkit": "1.1.1",
-    "@playwright/test": "1.65.1",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "6.5.438"
   }

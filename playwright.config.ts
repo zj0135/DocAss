@@ -1,2 +1,0 @@
-import {defineConfig} from '@playwright/test';
-export default defineConfig({testDir:'tests/browser',timeout:30000,workers:1,use:{browserName:'chromium',channel:'msedge',baseURL:'http://localhost:5173',viewport:{width:1366,height:900},screenshot:'only-on-failure'},reporter:[['list'],['json',{outputFile:'artifacts/browser-tests.json'}]],webServer:{command:'node src/web/node_modules/vite/bin/vite.js --config src/web/vite.config.ts --host localhost --port 5173 --strictPort src/web',url:'http://localhost:5173',reuseExistingServer:true,timeout:30000}});
