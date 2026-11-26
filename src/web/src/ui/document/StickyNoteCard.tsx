@@ -9,6 +9,10 @@ interface StickyNoteCardProps {
   onDelete: () => void;
   onClose: () => void;
   position: { x: number; y: number };
+  editImmediately?: boolean;
+  controlledDraft?: string;
+  onDraftChange?: (text:string)=>void;
+  onCancel?:()=>void;
 }
 
 export const StickyNoteCard: React.FC<StickyNoteCardProps> = ({
@@ -19,12 +23,13 @@ export const StickyNoteCard: React.FC<StickyNoteCardProps> = ({
   onDelete,
   onClose,
   position,
+  editImmediately=false,controlledDraft,onDraftChange,onCancel,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(editImmediately);
   const [editValue, setEditValue] = useState(content);
 
   const handleSave = () => {
-    onUpdateContent(editValue);
+    onUpdateContent(controlledDraft??editValue);
     setIsEditing(false);
   };
 
@@ -54,14 +59,17 @@ export const StickyNoteCard: React.FC<StickyNoteCardProps> = ({
       {isEditing ? (
         <div className="space-y-2">
           <textarea
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
+            aria-label="便签内容"
+            value={controlledDraft??editValue}
+            maxLength={20000}
+            onKeyDown={e=>{e.stopPropagation();if(e.nativeEvent.isComposing)return;if(e.key==='Escape'){e.preventDefault();onCancel?.();}}}
+            onChange={(e) => {setEditValue(e.target.value);onDraftChange?.(e.target.value);}}
             className="w-full text-[12.5px] p-1.5 bg-white border border-[#fcd34d] rounded-md focus:outline-hidden focus:ring-1 focus:ring-amber-500 text-slate-800 resize-none h-18"
             autoFocus
           />
           <div className="flex justify-end space-x-1.5">
             <button
-              onClick={() => setIsEditing(false)}
+              onClick={() => {setIsEditing(false);onCancel?.();}}
               className="px-2 py-1 text-[11px] rounded text-slate-600 hover:bg-[#fef3c7]"
             >
               取消

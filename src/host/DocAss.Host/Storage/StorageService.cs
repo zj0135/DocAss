@@ -10,7 +10,7 @@ public sealed record DocumentSnapshot(long DocumentRevision, JsonElement[] Annot
 
 public sealed class StorageService : IAsyncDisposable
 {
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
     public string DatabasePath { get; }
     public string BackupPath => DatabasePath + ".backup";
     public bool IsReadOnly { get; private set; }
@@ -49,7 +49,7 @@ public sealed class StorageService : IAsyncDisposable
                 using var tx = connection.BeginTransaction();
                 Execute(connection, SchemaSql, tx);
                 FaultInjection?.Invoke("migration");
-                Execute(connection, "PRAGMA user_version=1", tx); tx.Commit();
+                Execute(connection, "PRAGMA user_version=2", tx); tx.Commit();
             }
             return true;
         });
@@ -153,10 +153,13 @@ public sealed class StorageService : IAsyncDisposable
         switch (type)
         {
             case "annotation.put":
-                Contract.Require(S("docHash") == hash && v.GetProperty("page").GetInt32() <= pageCount, "标注文档或页码不匹配");
+                Contract.Require(S("docHash") == hash && (v.GetProperty("page").GetInt32() <= pageCount||S("migrationState")=="needsReview"), "标注文档或页码不匹配");
                 Execute(c, "INSERT INTO annotations(docHash,annotationId,revision,payload) VALUES($h,$i,$r,$j) ON CONFLICT(docHash,annotationId) DO UPDATE SET revision=$r,payload=$j", tx, ("$h", hash), ("$i", S("id")), ("$r", revision), ("$j", json)); break;
             case "conversation.put":
                 Execute(c, "INSERT INTO conversations(docHash,conversationId,payload) VALUES($h,$i,$j) ON CONFLICT(docHash,conversationId) DO UPDATE SET payload=$j", tx, ("$h", hash), ("$i", S("id")), ("$j", json)); break;
+            case "migration.decision":
+                Contract.Require(S("oldHash")!=hash&&Scalar(c,"SELECT 1 FROM source_paths a JOIN source_paths b ON a.path=b.path WHERE a.docHash=$old AND b.docHash=$new",tx,("$old",S("oldHash")),("$new",hash))!=null,"版本不属于同一源文件");
+                Execute(c,"INSERT INTO migration_decisions(oldHash,newHash,decision) VALUES($o,$n,$d) ON CONFLICT(oldHash,newHash) DO UPDATE SET decision=$d",tx,("$o",S("oldHash")),("$n",hash),("$d",S("decision")));break;
             case "message.put":
                 Contract.Require(Execute(c, "INSERT INTO messages(docHash,messageId,conversationId,sequence,state,payload) VALUES($h,$i,$c,$s,$t,$j) ON CONFLICT(docHash,messageId) DO UPDATE SET payload=$j,state=$t,sequence=$s WHERE conversationId=$c", tx, ("$h", hash), ("$i", S("id")), ("$c", S("conversationId")), ("$s", v.GetProperty("sequence").GetInt32()), ("$t", S("state")), ("$j", json)) == 1, "消息不能更换所属会话");
                 Execute(c, "DELETE FROM attachment_refs WHERE docHash=$h AND messageId=$i", tx, ("$h", hash), ("$i", S("id")));
@@ -216,6 +219,7 @@ public sealed class StorageService : IAsyncDisposable
         CREATE TABLE IF NOT EXISTS documents(docHash TEXT PRIMARY KEY,documentRevision INTEGER NOT NULL CHECK(documentRevision>=0),pageCount INTEGER NOT NULL,displayName TEXT NOT NULL,schemaVersion INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS source_paths(docHash TEXT NOT NULL REFERENCES documents(docHash),path TEXT NOT NULL,PRIMARY KEY(docHash,path));
         CREATE TABLE IF NOT EXISTS recent_items(docHash TEXT PRIMARY KEY REFERENCES documents(docHash),openedAt TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS migration_decisions(oldHash TEXT NOT NULL REFERENCES documents(docHash),newHash TEXT NOT NULL REFERENCES documents(docHash),decision TEXT NOT NULL,PRIMARY KEY(oldHash,newHash));
         CREATE TABLE IF NOT EXISTS annotations(docHash TEXT NOT NULL REFERENCES documents(docHash),annotationId TEXT NOT NULL,revision INTEGER NOT NULL,payload TEXT NOT NULL CHECK(json_valid(payload)),PRIMARY KEY(docHash,annotationId));
         CREATE TABLE IF NOT EXISTS conversations(docHash TEXT NOT NULL REFERENCES documents(docHash),conversationId TEXT NOT NULL,payload TEXT NOT NULL CHECK(json_valid(payload)),PRIMARY KEY(docHash,conversationId));
         CREATE TABLE IF NOT EXISTS messages(docHash TEXT NOT NULL,messageId TEXT NOT NULL,conversationId TEXT NOT NULL,sequence INTEGER NOT NULL,state TEXT NOT NULL,payload TEXT NOT NULL CHECK(json_valid(payload)),PRIMARY KEY(docHash,messageId),FOREIGN KEY(docHash,conversationId) REFERENCES conversations(docHash,conversationId) ON DELETE CASCADE);

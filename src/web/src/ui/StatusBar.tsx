@@ -15,6 +15,7 @@ interface StatusBarProps {
   scale: number;
   onScaleChange: (scale: number) => void;
   isSaved?: boolean;
+  saveState?:'pending'|'saving'|'saved'|'error';
   onCancelOcr?: () => void;
 }
 
@@ -24,6 +25,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   scale,
   onScaleChange,
   isSaved = true,
+  saveState,
   onCancelOcr,
 }) => {
   const [isEditingPage, setIsEditingPage] = useState(false);
@@ -119,7 +121,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       {/* Right: Status by Priority (Image 1, 2, 4) */}
       <div className="flex items-center space-x-2">
         {/* Priority 1: OCR In Progress (Image 4) */}
-        {activeTab.ocrStatus?.isRecognizing ? (
+        {saveState&&saveState!=='saved'?<span role="status" data-testid="save-state" className={saveState==='error'?'text-red-700':'text-amber-700'}>{saveState==='error'?'保存失败':saveState==='pending'?'待保存':'保存中…'}</span>:activeTab.ocrStatus?.isRecognizing ? (
           <div className="flex items-center space-x-2 text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
             <Scan className="w-3 h-3 animate-spin" />
             <span className="font-medium text-[11.5px]">

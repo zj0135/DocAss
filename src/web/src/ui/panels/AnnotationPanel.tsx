@@ -1,5 +1,7 @@
 import React from 'react';
 import type { AnyAnnotation } from '../../types';
+import type {Annotation} from '../../contracts';
+import {AnnotationList} from '../../annotations/AnnotationList';
 import {
   X,
   MessageSquare,
@@ -10,6 +12,8 @@ import {
 
 interface AnnotationPanelProps {
   annotations: AnyAnnotation[];
+  documentAnnotations?:Annotation[];
+  pageCount?:number;
   selectedAnnotationId?: string;
   onSelectAnnotation: (id: string, page: number) => void;
   onDeleteAnnotation: (id: string, e: React.MouseEvent) => void;
@@ -22,6 +26,7 @@ export const AnnotationPanel: React.FC<AnnotationPanelProps> = ({
   onSelectAnnotation,
   onDeleteAnnotation,
   onClose,
+  documentAnnotations,pageCount=1,
 }) => {
   // Group annotations by page
   const groupedAnnotations = React.useMemo(() => {
@@ -107,6 +112,7 @@ export const AnnotationPanel: React.FC<AnnotationPanelProps> = ({
     }
   };
 
+  if(documentAnnotations)return <AnnotationList annotations={documentAnnotations} pageCount={pageCount} selectedAnnotationId={selectedAnnotationId} onSelectAnnotation={onSelectAnnotation} onDeleteAnnotation={onDeleteAnnotation} onClose={onClose}/>;
   return (
     <aside className="w-[280px] bg-white border-r border-[#e3e6ea] flex flex-col flex-shrink-0 z-10 animate-in slide-in-from-left-2 duration-150">
       {/* Header */}

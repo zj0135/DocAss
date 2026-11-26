@@ -59,7 +59,7 @@ public sealed partial class MainWindow : Window
         StateChanged += (_, _) => Emit("window.stateChanged", new { maximized = WindowState == WindowState.Maximized });
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         SourceInitialized += (_, _) => System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle)?.AddHook(DisplayMessage);
-        RegisterMethods(); RegisterDocumentMethods();
+        RegisterMethods(); RegisterDocumentMethods();RegisterCloseMethods();
     }
     private async Task InitializeAsync()
     {
@@ -210,8 +210,14 @@ public sealed partial class MainWindow : Window
     {
         if (mayClose) return; e.Cancel = true;
         if (closing) return; closing = true;
+        if(initialized&&web.CoreWebView2!=null)
+        {
+            frontendClose=new(TaskCreationOptions.RunContinuationsAsynchronously);frontendCloseId=Guid.NewGuid().ToString();Emit("window.closeRequested",new{requestId=frontendCloseId});
+            bool ready;try{ready=await frontendClose.Task.WaitAsync(TimeSpan.FromSeconds(120));}catch(TimeoutException){ready=false;MessageBox.Show("页面未完成保存确认，窗口保持打开。请检查未保存内容后重试。","未关闭");}
+            frontendClose=null;frontendCloseId=null;if(!ready){closing=false;Emit("window.closeCancelled",new{});return;}
+        }
         if (!initialized || await close.RequestAsync()) { if(acceptance?.Scenario is "closeButton" or "altF4")await RecordClosingAcceptanceAsync(); mayClose = true; await CleanupAsync(); Close(); }
-        else { MessageBox.Show("保存或备份失败，窗口保持打开。请检查磁盘与权限后重试。", "未关闭"); close.CancelClose(); closing = false; }
+        else { MessageBox.Show("保存或备份失败，窗口保持打开。请检查磁盘与权限后重试。", "未关闭"); close.CancelClose(); closing = false;Emit("window.closeCancelled",new{}); }
     }
     private async Task CleanupAsync()
     {

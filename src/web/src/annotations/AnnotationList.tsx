@@ -1,0 +1,13 @@
+import {useEffect,useMemo,useRef,useState} from 'react';
+import type {Annotation} from '../contracts';
+export function AnnotationList({annotations,selectedAnnotationId,onSelectAnnotation,onDeleteAnnotation,onClose,pageCount}:{annotations:Annotation[];selectedAnnotationId?:string;onSelectAnnotation:(id:string,page:number)=>void;onDeleteAnnotation:(id:string,e:React.MouseEvent)=>void;onClose:()=>void;pageCount:number}){
+  const ref=useRef<HTMLDivElement>(null),[top,setTop]=useState(0),[height,setHeight]=useState(700);
+  const items=useMemo(()=>[...annotations].sort((a,b)=>(a.migrationState==='needsReview'?1:0)-(b.migrationState==='needsReview'?1:0)||a.page-b.page||a.createdAt.localeCompare(b.createdAt)),[annotations]);
+  useEffect(()=>{const el=ref.current!;const observer=new ResizeObserver(()=>setHeight(el.clientHeight));observer.observe(el);return()=>observer.disconnect();},[]);
+  useEffect(()=>{const index=items.findIndex(a=>a.id===selectedAnnotationId),el=ref.current;if(el&&index>=0&&(index*72<el.scrollTop||index*72+72>el.scrollTop+height))el.scrollTop=index*72;},[selectedAnnotationId,items,height]);
+  const start=Math.max(0,Math.floor(top/72)-2),visible=items.slice(start,start+Math.ceil(height/72)+4);
+  const labels={highlight:'高亮',underline:'下划线',note:'便签',freetext:'文字批注',ink:'手绘',rect:'矩形',arrow:'箭头'};
+  return <aside className="w-[280px] bg-white border-r flex flex-col shrink-0" aria-label="标注列表"><div className="flex justify-between px-4 py-3 text-sm border-b"><span>标注 ({items.length})</span><button onClick={onClose} aria-label="关闭标注列表">×</button></div><div ref={ref} onScroll={e=>setTop(e.currentTarget.scrollTop)} className="flex-1 overflow-auto min-h-0" data-testid="annotation-list">
+    {!items.length?<p className="text-sm text-slate-500 p-6">暂无标注，选择文字或绘制图形添加</p>:<div style={{height:items.length*72,position:'relative'}}>{visible.map((a,i)=><div key={a.id} data-annotation-id={a.id} aria-selected={a.id===selectedAnnotationId} style={{position:'absolute',top:(start+i)*72,left:8,right:8,height:68}} className={`rounded p-2 text-xs cursor-pointer ${a.id===selectedAnnotationId?'bg-blue-100':'hover:bg-slate-100'}`} onClick={()=>onSelectAnnotation(a.id,a.page)}><div className="flex gap-2"><span style={{color:a.color}}>● {labels[a.type]}</span><span>{a.page>pageCount?'未定位':a.migrationState==='needsReview'?'待复核':`第 ${a.page} 页`}</span><button className="ml-auto text-red-600" aria-label="删除此标注" onClick={e=>onDeleteAnnotation(a.id,e)}>删除</button></div><p className="truncate mt-1">{a.contents||a.text||a.textAnchor?.quote||labels[a.type]}</p><span className="text-slate-400">{a.author}</span></div>)}</div>}
+  </div></aside>;
+}

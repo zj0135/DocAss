@@ -52,6 +52,7 @@ public sealed partial class MainWindow
             if(await web.CoreWebView2.ExecuteScriptAsync("Boolean(document.querySelector('footer')?.textContent.includes('桌面模式'))")!="true")throw new Exception("Workspace did not bootstrap");
             if(acceptance.Scenario=="hmr") { await VerifyHmrAsync();return; }
             if(acceptance.Scenario=="reading") { await VerifyReadingAsync();return; }
+            if(acceptance.Scenario=="annotations") {await VerifyAnnotationsAsync();return;}
             NativeInput.GetCursorPos(out originalCursor);originalForeground=NativeInput.GetForegroundWindow();Topmost=true;NativeInput.Activate(this);await Task.Delay(400);
             if(acceptance.Scenario is "closeButton" or "altF4")
             {
@@ -162,17 +163,18 @@ public sealed partial class MainWindow
             document.querySelector('button[title="设置"]').click();await until(()=>document.querySelector('input[aria-label="API Key"]'));check(document.querySelector('input[aria-label="API Key"]').value==='','cleared after close');document.querySelector('button[aria-label="关闭设置"]').click();
             """);
     }
-    private async Task RunPageCheck(string name,string script)
+    private async Task RunPageCheck(string name,string script,int timeout=3000)
     {
+        await web.CoreWebView2.ExecuteScriptAsync("window.__pageCheckTimeout="+timeout);
         await web.CoreWebView2.ExecuteScriptAsync("""
             window.__pageCheck=null;(async()=>{
             const pause=ms=>new Promise(r=>setTimeout(r,ms));
             const button=text=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent===text);
             const check=(value,message)=>{if(!value)throw Error(message);};
-            const until=async predicate=>{for(let i=0;i<300;i++){if(predicate())return;await pause(10);}throw Error('Timeout: '+predicate);};
+            const until=async predicate=>{for(let i=0;i<Math.ceil(window.__pageCheckTimeout/10);i++){if(predicate())return;await pause(10);}throw Error('Timeout: '+predicate);};
             const setValue=(input,value)=>{Object.getOwnPropertyDescriptor(input instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));};
             """+script+";window.__pageCheck={ok:true};})().catch(e=>window.__pageCheck={ok:false,error:String(e)});");
-        for(var i=0;i<200;i++)
+        for(var i=0;i<Math.Max(200,(timeout+2000)/50);i++)
         {
             var value=await web.CoreWebView2.ExecuteScriptAsync("window.__pageCheck");if(value!="null"){using var result=JsonDocument.Parse(value);acceptanceResults[name]=result.RootElement.Clone();if(!result.RootElement.GetProperty("ok").GetBoolean())throw new Exception(name+": "+value);return;}await Task.Delay(50);
         }

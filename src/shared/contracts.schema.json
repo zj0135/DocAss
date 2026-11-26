@@ -1145,6 +1145,38 @@
             "id"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "migration.decision"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "oldHash": {
+                  "$ref": "#/$defs/Hash"
+                },
+                "decision": {
+                  "enum": [
+                    "accepted",
+                    "declined"
+                  ]
+                }
+              },
+              "required": [
+                "oldHash",
+                "decision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -1472,6 +1504,51 @@
             "maximized"
           ],
           "additionalProperties": false
+        },
+        "toolPreferences": {
+          "type": "array",
+        "minItems": 0,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "enum": [
+                  "select",
+                  "highlight",
+                  "underline",
+                  "note",
+                  "freetext",
+                  "ink",
+                  "rect",
+                  "arrow",
+                  "regionAsk",
+                  "eraser"
+                ]
+              },
+              "color": {
+                "type": "string",
+                "pattern": "^#[0-9A-Fa-f]{6}$"
+              },
+              "strokeWidth": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 100
+              },
+              "opacity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "tool",
+              "color",
+              "strokeWidth",
+              "opacity"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [

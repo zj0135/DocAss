@@ -1,10 +1,11 @@
 import { useEffect,useRef,useState } from 'react';
-import type { PageInfo,Quad } from '../contracts';
+import type { PageInfo,Quad,Annotation } from '../contracts';
+import {paintAnnotations} from '../annotations/paint';
 import type { PagedDocument } from './types';
 import { backingScale,quad,viewport } from './geometry';
 import { pageCanvases,thumbnailCanvases,renderQueue } from './resources';
-type Props={document:PagedDocument;info:PageInfo;scale:number;rotation:number;dpr:number;priority:number;selection?:Quad[];matches?:Quad[];current?:Quad[];thumbnail?:boolean;onRecover?:()=>void};
-export function PageView({document,info,scale,rotation,dpr,priority,selection=[],matches=[],current=[],thumbnail=false,onRecover}:Props){
+type Props={document:PagedDocument;info:PageInfo;scale:number;rotation:number;dpr:number;priority:number;selection?:Quad[];matches?:Quad[];current?:Quad[];thumbnail?:boolean;onRecover?:()=>void;annotations?:Annotation[];selectedId?:string};
+export function PageView({document,info,scale,rotation,dpr,priority,selection=[],matches=[],current=[],thumbnail=false,onRecover,annotations=[],selectedId}:Props){
   const host=useRef<HTMLDivElement>(null),overlay=useRef<HTMLCanvasElement>(null),visible=useRef<HTMLCanvasElement|null>(null),[error,setError]=useState(''),[revision,setRevision]=useState(0);
   const view=viewport(info,scale,rotation);
   useEffect(()=>{
@@ -32,8 +33,9 @@ export function PageView({document,info,scale,rotation,dpr,priority,selection=[]
     const ctx=canvas.getContext('2d')!;ctx.setTransform(output,0,0,output,0,0);
     const paint=(quads:Quad[],color:string)=>{ctx.fillStyle=color;for(const q of quads){const v=quad(view.transform,q);ctx.beginPath();ctx.moveTo(v[0],v[1]);for(let i=2;i<8;i+=2)ctx.lineTo(v[i],v[i+1]);ctx.closePath();ctx.fill();}};
     paint(matches,'rgba(250,204,21,.35)');paint(current,'rgba(249,115,22,.6)');paint(selection,'rgba(59,130,246,.32)');
+    paintAnnotations(ctx,annotations,view.transform,selectedId);
     return ()=>pageCanvases.release(canvas);
-  },[info,scale,rotation,dpr,selection,matches,current,revision,thumbnail]);
+  },[info,scale,rotation,dpr,selection,matches,current,revision,thumbnail,annotations,selectedId]);
   return <div data-page={info.page} style={{width:view.width,height:view.height,position:'relative',background:'white',boxShadow:'0 2px 8px #0002'}}>
     <div ref={host} style={{width:'100%',height:'100%',pointerEvents:'none'}}/>
     {!thumbnail&&<canvas ref={overlay} data-overlay={info.page} style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}/>}

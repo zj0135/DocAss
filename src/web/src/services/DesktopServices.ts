@@ -12,6 +12,7 @@ export class DesktopServices implements AppServices {
   constructor(transport: Webview2Transport) { this.transport = transport; }
   async bootstrap() { const result = await this.transport.request<Bootstrap>('app.bootstrap'); validate('Settings', result.settings); this.local = result.loopback; return result; }
   documents: AppServices['documents'] = {
+    loaded:async()=>{},checkSource:docId=>this.transport.request('doc.checkSource',{docId},undefined,120000),openVersion:docId=>this.transport.request('doc.openVersion',{docId},undefined,120000),migrationInfo:(docId,oldHash)=>this.transport.request('doc.migrationInfo',{docId,oldHash},undefined,120000),
     open: (_file,signal) => this.transport.request('doc.open',{},signal,120000),
     unlock: (openId,password,signal)=>this.transport.request('doc.unlock',{openId,password},signal,120000),
     cancelOpen: openId=>this.transport.request('doc.cancelOpen',{openId}),
@@ -47,7 +48,7 @@ export class DesktopServices implements AppServices {
     commit: async (docId, uploadId) => (await this.transport.request<{attachmentId:string}>('attachment.commit',{docId,uploadId})).attachmentId,
     resolve: (docId, attachmentId) => this.transport.request('attachment.resolve',{docId,attachmentId}),
   };
-  window: AppServices['window'] = { minimize: () => this.transport.request('window.minimize'), maximize: () => this.transport.request('window.maximize'), requestClose: () => this.transport.request('window.requestClose'), subscribe: fn => this.transport.subscribe(event => { if (event.topic === 'window.stateChanged') fn((event.payload as {maximized:boolean}).maximized); }) };
+  window: AppServices['window'] = { minimize: () => this.transport.request('window.minimize'), maximize: () => this.transport.request('window.maximize'), requestClose: () => this.transport.request('window.requestClose'), subscribe: fn => this.transport.subscribe(event => { if (event.topic === 'window.stateChanged') fn((event.payload as {maximized:boolean}).maximized); }),onClosing:fn=>this.transport.subscribe(event=>{if(event.topic==='window.closeRequested')fn((event.payload as {requestId:string}).requestId);}),onCloseCancelled:fn=>this.transport.subscribe(event=>{if(event.topic==='window.closeCancelled')fn();}),closeReady:(requestId,ready)=>this.transport.request('window.closeReady',{requestId,ready}) };
   async fixtureReply(_docId: string, signal: AbortSignal, onChunk: (text: string) => void) {
     if (!this.local) throw new ServiceError('UNCONFIGURED','本机通道尚未就绪');
     const id = crypto.randomUUID(); const cancel = () => { void this.transport.request('stream.cancel',{requestId:id}).catch(() => {}); };

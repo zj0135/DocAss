@@ -5,7 +5,7 @@ import type { DocumentSource, RecentDocument } from '../documents/types';
 
 export const defaultSettings: Settings = { revision: 0, author: '浏览器用户', chatWidth: 440, sidePanel: 'none', tool: 'select', color: '#3B82F6', strokeWidth: 2, opacity: .5, window: { left: 80, top: 80, width: 1280, height: 800, maximized: false } };
 const unsupported = async (): Promise<never> => { throw new ServiceError('UNCONFIGURED', '此功能需要桌面服务'); };
-type SavedDoc = { handle: DocHandle; state: DocumentState; effects: Record<string, unknown> };
+type SavedDoc = { handle: DocHandle; state: DocumentState; effects: Record<string, unknown>;pageCount?:number;migrations?:Record<string,string> };
 type SavedOperation = { hash: string; result: CommitResult };
 function request<T>(value: IDBRequest<T>): Promise<T> { return new Promise((resolve, reject) => { value.onsuccess = () => resolve(value.result); value.onerror = () => reject(value.error); }); }
 function done(tx: IDBTransaction): Promise<void> { return new Promise((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(new ServiceError('STORAGE_FAILED', '浏览器存储失败，未确认保存', true)); }); }
@@ -36,6 +36,8 @@ export class BrowserServices implements AppServices {
   private async read<T>(store: string, key: string): Promise<T | undefined> { const db = await this.database; return request(db.transaction(store).objectStore(store).get(key)); }
   async bootstrap(): Promise<Bootstrap> { return { version: '0.3.0', capabilities: this.capabilities, settings: await this.settings.get(), window: { maximized: false }, documents: [] }; }
   documents: AppServices['documents'] = {
+    loaded:async(id,pageCount)=>{const handle=this.resolve(id),db=await this.database,tx=db.transaction('documents','readwrite'),completion=done(tx),store=tx.objectStore('documents'),doc=await request<SavedDoc>(store.get(handle.docHash));doc.pageCount=pageCount;store.put(doc,handle.docHash);await completion;},
+    checkSource:async()=>({changed:false,missing:false}),openVersion:unsupported,migrationInfo:unsupported,
     open: async (file,signal)=>{
       if(!file)return null;
       if(!/\.(pdf|png|jpe?g|bmp)$/i.test(file.name))throw new ServiceError('UNSUPPORTED_FORMAT','支持 PDF、PNG、JPEG 和 BMP 文件');
@@ -116,7 +118,7 @@ export class BrowserServices implements AppServices {
     delete: async id => { validate('Id', id); const db = await this.database, tx = db.transaction('providers', 'readwrite'), completion = done(tx); tx.objectStore('providers').delete(id); await completion; },
   };
   attachments = { begin: unsupported, upload: unsupported, commit: unsupported, resolve: async () => ({available:false}) };
-  window = { minimize: unsupported, maximize: unsupported, requestClose: unsupported, subscribe: (_fn: (maximized: boolean) => void) => () => {} };
+  window = { minimize: unsupported, maximize: unsupported, requestClose: unsupported, subscribe: (_fn: (maximized: boolean) => void) => () => {},onClosing:(_fn:(id:string)=>void)=>()=>{},onCloseCancelled:(_fn:()=>void)=>()=>{},closeReady:unsupported };
   async fixtureReply(id: string, signal: AbortSignal, onChunk: (text: string) => void) {
     this.resolve(id); const linked = AbortSignal.any([signal, this.lifetime.signal]);
     for (const text of ['这是示例回复。', '内容用于验证分段显示。', '可以随时停止。', '示例结束。']) { await abortableDelay(120, linked); this.resolve(id); if (!linked.aborted) onChunk(text); }
@@ -125,13 +127,14 @@ export class BrowserServices implements AppServices {
 }
 function applyCommand(doc: SavedDoc, command: Command) {
   for (const mutation of command.mutations) {
+    if(mutation.type==='migration.decision'){doc.migrations??={};doc.migrations[mutation.value.oldHash]=mutation.value.decision;continue;}
     if (mutation.type === 'effect.put') { const v = mutation.value, key = `${v.conversationId}/${v.runId}/${v.toolCallId}`; if (doc.effects[key]) throw new ServiceError('OPERATION_CONFLICT', '工具效果已提交'); if (!doc.state.conversations.some(c => c.id === v.conversationId) || v.annotationIds.some(id => !doc.state.annotations.some(a => a.id === id))) throw new ServiceError('INVALID_PAYLOAD', '工具引用无效'); doc.effects[key] = v; continue; }
     const kind = mutation.type.split('.')[0] as 'annotation'|'conversation'|'message';
     const key = { annotation: 'annotations', conversation: 'conversations', message: 'messages' }[kind] as 'annotations'|'conversations'|'messages';
     const list: any[] = doc.state[key];
     if ('value' in mutation) {
       const v = mutation.value;
-      if ('docHash' in v && (v.docHash !== doc.handle.docHash || v.page > 12)) throw new ServiceError('INVALID_PAYLOAD', '标注文档或页码无效');
+      if ('docHash' in v && (v.docHash !== doc.handle.docHash || v.page > (doc.pageCount??12)&&v.migrationState!=='needsReview')) throw new ServiceError('INVALID_PAYLOAD', '标注文档或页码无效');
       if ('conversationId' in v && !doc.state.conversations.some(c => c.id === v.conversationId)) throw new ServiceError('INVALID_PAYLOAD', '会话不存在');
       if ('content' in v && v.content.some(b => b.type === 'attachment')) throw new ServiceError('UNCONFIGURED', '浏览器示例暂不保存附件');
       const index = list.findIndex(item => item.id === v.id); if (index < 0) list.push(v); else list[index] = v;

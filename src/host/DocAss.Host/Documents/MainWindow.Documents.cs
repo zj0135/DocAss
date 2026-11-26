@@ -9,6 +9,9 @@ public sealed partial class MainWindow
 {
     private void RegisterDocumentMethods()
     {
+        bridge.Register("doc.checkSource",async(p,token)=>{Contract.Fields(p,"docId");return await files.CheckSourceAsync(p.GetProperty("docId").GetString()!,token);});
+        bridge.Register("doc.openVersion",async(p,token)=>{Contract.Fields(p,"docId");Emit("doc.opened",await files.OpenVersionAsync(p.GetProperty("docId").GetString()!,token));return null;});
+        bridge.Register("doc.migrationInfo",async(p,token)=>{Contract.Fields(p,"docId","oldHash");return await files.MigrationInfoAsync(p.GetProperty("docId").GetString()!,p.GetProperty("oldHash").GetString()!,token);});
         bridge.Register("doc.open", async (p, token) =>
         {
             Contract.Fields(p);

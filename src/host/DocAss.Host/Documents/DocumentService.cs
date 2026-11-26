@@ -8,17 +8,18 @@ using UglyToad.PdfPig.Exceptions;
 
 namespace DocAss.Host.Documents;
 
-public sealed record OpenResult(string Status, string OpenId, string FileName, DocHandle? Handle = null, int PageCount = 0, ImageInfo? Image = null);
+public sealed record OpenResult(string Status, string OpenId, string FileName, DocHandle? Handle = null, int PageCount = 0, ImageInfo? Image = null){public string? PreviousHash {get;init;}}
 public sealed record RecentDocument(string DocHash, string FileName, string OpenedAt);
 internal sealed record SourceSnapshot(string Path, string SourcePath, string Hash, string FileName, string Kind, long Length);
 internal sealed record OpenDocument(SourceSnapshot Snapshot, int PageCount, string? Password, ImageInfo? Image, CancellationTokenSource Lifetime, FileStream Lease)
 {
+    public string? PreviousHash {get;set;}
     // WebView2 owns response streams until consumed. Weak tracking permits its
     // released responses to be collected, while close can invalidate live ones.
     public List<WeakReference<Stream>> Streams {get;} = new();
 }
 
-public sealed class DocumentService(string directory, DocumentRegistry registry, StorageService storage) : IDisposable
+public sealed partial class DocumentService(string directory, DocumentRegistry registry, StorageService storage) : IDisposable
 {
     public const long MaxLength = 1024L * 1024 * 1024;
     private readonly ConcurrentDictionary<string, SourceSnapshot> pending = new();
@@ -71,12 +72,13 @@ public sealed class DocumentService(string directory, DocumentRegistry registry,
         try
         {
             await storage.EnsureDocumentAsync(handle, pages); await RememberAsync(snapshot);
+            document.PreviousHash=await MigrationCandidateAsync(snapshot);
             token.ThrowIfCancellationRequested(); opened[handle.DocId] = document;
             return Ready(handle.DocId, document);
         }
         catch { registry.Close(handle.DocId); document.Lifetime.Dispose(); document.Lease.Dispose(); throw; }
     }
-    private OpenResult Ready(string id, OpenDocument document) => new("ready", id, document.Snapshot.FileName, registry.Resolve(id), document.PageCount, document.Image);
+    private OpenResult Ready(string id, OpenDocument document) => new("ready", id, document.Snapshot.FileName, registry.Resolve(id), document.PageCount, document.Image){PreviousHash=document.PreviousHash};
     internal OpenDocument Resolve(string id) { registry.Resolve(id); return opened.TryGetValue(id, out var document) ? document : throw new AppException("DOCUMENT_CLOSED", "文档已关闭"); }
     public OpenResult Info(string id) => Ready(id, Resolve(id));
     public string? Password(string id) => Resolve(id).Password;

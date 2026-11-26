@@ -35,7 +35,7 @@ public sealed class BridgeRouter(string trustedOrigin) : IDisposable
                 return new { v = 1, kind = "res", id, ok = true, result = new { cancelled = true } };
             }
             if (!methods.TryGetValue(method, out var handler)) throw new AppException("UNKNOWN_METHOD", "未知宿主方法");
-            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(session.Token); cancellation.CancelAfter(TimeSpan.FromSeconds(method is "doc.open" or "doc.openRecent" or "doc.unlock" ? 120 : 10));
+            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(session.Token); cancellation.CancelAfter(TimeSpan.FromSeconds(method is "doc.open" or "doc.openRecent" or "doc.unlock" or "doc.checkSource" or "doc.openVersion" or "doc.migrationInfo" ? 120 : 10));
             if (pending.Count >= 256 || !pending.TryAdd(id!, cancellation)) throw new AppException("BUSY", "请求重复或并发过多", true);
             try
             {

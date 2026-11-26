@@ -21,6 +21,7 @@ export default function App() {
 function Workspace() {
   const services = useMemo(createServices,[]), sessions = useMemo(()=>new Map<string,DocSession>(),[]);
   const pool=useMemo(()=>new DocumentPool(),[]),fileInput=useRef<HTMLInputElement>(null),openAbort=useRef<AbortController|null>(null);
+  const closeBusy=useRef(false),windowClosing=useRef(false),queuedWindowClose=useRef<string|undefined>(undefined),[closePrompt,setClosePrompt]=useState<{ids:string[];requestId?:string;error:string}>(),[closingText,setClosingText]=useState('');
   const [opening,setOpening]=useState(false),[recent,setRecent]=useState<RecentDocument[]>([]),[passwordRequest,setPasswordRequest]=useState<{incorrect:boolean;resolve:(value:string)=>void;reject:(error:Error)=>void}>(),[password,setPassword]=useState('');
   const prompt=useCallback((incorrect:boolean)=>new Promise<string>((resolve,reject)=>{setPassword('');setPasswordRequest({incorrect,resolve,reject});}),[]);
   const state = useStore(appStore), [settingsOpen,setSettingsOpen] = useState(false), [maximized,setMaximized] = useState(false), [fixturesEnabled,setFixturesEnabled] = useState(!services.capabilities.desktop);
@@ -32,6 +33,7 @@ function Workspace() {
     return ()=>{active=false;unsubscribe();};
   },[services]);
   const adopt=useCallback(async(initial:OpenResult,signal:AbortSignal)=>{
+    if(windowClosing.current){if(initial.status!=='ready')await services.documents.cancelOpen(initial.openId);else if(!sessions.has(initial.handle!.docId))await services.documents.close(initial.handle!.docId);return;}
     let result=initial;
     try{
       while(result.status!=='ready'){
@@ -41,33 +43,50 @@ function Workspace() {
       pool.register(handle.docId,()=>services.documents.source(handle.docId));
       try{
         const lease=await pool.acquire(handle.docId,prompt,signal),count=lease.document.pageCount;lease.release();signal.throwIfAborted();
-        const session=new DocSession(handle,services);await session.restore();signal.throwIfAborted();session.store.setState({pageCount:count});sessions.set(handle.docId,session);
+        await services.documents.loaded(handle.docId,count);const session=new DocSession(handle,services);session.migrationFrom=result.previousHash;await session.restore();signal.throwIfAborted();if(windowClosing.current)throw new DOMException('已取消','AbortError');session.store.setState({pageCount:count});sessions.set(handle.docId,session);
         appStore.setState(s=>({tabs:[...s.tabs,handle],activeDocId:handle.docId,error:undefined}));setRecent(await services.documents.recent());
       }catch(e){await pool.close(handle.docId);await services.documents.close(handle.docId);throw e;}
     }catch(e){if(result.status!=='ready')await services.documents.cancelOpen(result.openId);throw e;}
   },[services,pool,sessions,prompt]);
   const open=async(file?:File,hash?:string)=>{
-    if(openAbort.current)return;const abort=new AbortController();openAbort.current=abort;setOpening(true);
+    if(openAbort.current||closeBusy.current||windowClosing.current)return;const abort=new AbortController();openAbort.current=abort;setOpening(true);
     try{const result=hash?await services.documents.openRecent(hash,abort.signal):await services.documents.open(file,abort.signal);if(result)await adopt(result,abort.signal);}
     catch(e){if(!abort.signal.aborted&&!(e instanceof DOMException&&e.name==='AbortError'))report(e);}
     finally{setOpening(false);openAbort.current=null;}
   };
   useEffect(()=>{let queue=Promise.resolve();return services.documents.subscribe(result=>{queue=queue.then(async()=>{const abort=new AbortController();openAbort.current=abort;setOpening(true);try{await adopt(result,abort.signal);}catch(e){if(!abort.signal.aborted&&!(e instanceof DOMException&&e.name==='AbortError'))report(e);}finally{openAbort.current=null;setOpening(false);}});},message=>report(new Error(message)));},[services,adopt]);
-  const choose=()=>{if(services.capabilities.desktop)void open();else fileInput.current?.click();};
+  const choose=()=>{if(windowClosing.current)return;if(services.capabilities.desktop)void open();else fileInput.current?.click();};
   const openFixture = async (name: 'report'|'contract') => {
+    if(closeBusy.current||windowClosing.current)return;
     try {
       const handle=await services.documents.openFixture(name);let session=sessions.get(handle.docId);
-      if(!session){session=new DocSession(handle,services);await session.restore();sessions.set(handle.docId,session);}
+      if(windowClosing.current){if(!session)await services.documents.close(handle.docId);return;}
+      if(!session){session=new DocSession(handle,services);await session.restore();if(windowClosing.current){await services.documents.close(handle.docId);return;}sessions.set(handle.docId,session);}
       appStore.setState(current=>({tabs:current.tabs.some(t=>t.docId===handle.docId)?current.tabs:[...current.tabs,handle],activeDocId:handle.docId,error:undefined}));
     }catch(e){report(e);}
   };
-  const closeTab=async (id:string)=>{try{await sessions.get(id)?.close();await pool.close(id);sessions.delete(id);appStore.setState(s=>({tabs:s.tabs.filter(t=>t.docId!==id),activeDocId:s.activeDocId===id?s.tabs.find(t=>t.docId!==id)?.docId??'':s.activeDocId}));}catch(e){report(e);}};
+  const finishClose=async(ids:string[],requestId?:string)=>{
+    if(requestId){windowClosing.current=true;openAbort.current?.abort();passwordRequest?.reject(new DOMException('已取消','AbortError'));setPassword('');setPasswordRequest(undefined);for(const s of sessions.values()){s.store.setState({closeState:'closing'});s.stop();}}
+    if(closeBusy.current){if(requestId)queuedWindowClose.current=requestId;return;}closeBusy.current=true;setClosingText('正在保存并关闭…');
+    for(const id of ids)sessions.get(id)?.store.setState({closeState:'closing'});
+    try{for(const id of ids)await sessions.get(id)?.prepareClose();
+      if(requestId)await services.window.closeReady(requestId,true);
+      else for(const id of ids){await sessions.get(id)?.close();await pool.close(id);sessions.delete(id);appStore.setState(s=>({tabs:s.tabs.filter(t=>t.docId!==id),activeDocId:s.activeDocId===id?s.tabs.find(t=>t.docId!==id)?.docId??'':s.activeDocId}));}
+      setClosePrompt(undefined);
+    }catch(e){setClosePrompt({ids,requestId,error:e instanceof Error?e.message:String(e)});}finally{closeBusy.current=false;setClosingText('');const next=queuedWindowClose.current;queuedWindowClose.current=undefined;if(next)void finishClose([...sessions.keys()],next);}
+  };
+  const closeTab=(id:string)=>void finishClose([id]);
+  useEffect(()=>services.window.onClosing(requestId=>void finishClose([...sessions.keys()],requestId)),[services,sessions,pool,passwordRequest]);
+  useEffect(()=>services.window.onCloseCancelled(()=>{windowClosing.current=false;queuedWindowClose.current=undefined;for(const session of sessions.values())session.cancelClose();setClosePrompt(undefined);setClosingText('');}),[services,sessions]);
+  useEffect(()=>{const before=(e:BeforeUnloadEvent)=>{if([...sessions.values()].some(s=>s.store.getState().saveState!=='saved'||s.store.getState().editor)){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',before);return()=>window.removeEventListener('beforeunload',before);},[sessions]);
   const tabs:DocTab[]=state.tabs.map(h=>({id:h.docId,docHash:h.docHash,title:h.fileName,kind:h.kind,pageCount:sessions.get(h.docId)?.store.getState().pageCount??1,currentPage:1,scale:1,rotation:0,textSource:'native'}));
   const session=sessions.get(state.activeDocId);
-  return <div data-build-stamp={buildStamp} className="h-screen flex flex-col bg-[#f5f6f8] text-slate-800" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const files=Array.from(e.dataTransfer.files);if(services.capabilities.desktop)services.documents.drop(files);else void(async()=>{for(const file of files)await open(file);})();}}>
+  return <div data-build-stamp={buildStamp} className="h-screen flex flex-col bg-[#f5f6f8] text-slate-800" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(windowClosing.current)return;const files=Array.from(e.dataTransfer.files);if(services.capabilities.desktop)services.documents.drop(files);else void(async()=>{for(const file of files)await open(file);})();}}>
     <input ref={fileInput} data-testid="file-input" type="file" accept=".pdf,.png,.jpg,.jpeg,.bmp" multiple hidden onChange={e=>{const files=Array.from(e.target.files??[]);e.target.value='';void(async()=>{for(const file of files)await open(file);})();}}/>
     <TitleBar tabs={tabs} activeTabId={state.activeDocId} onSelectTab={activeDocId=>appStore.setState({activeDocId})} onCloseTab={(id,e)=>{e.stopPropagation();void closeTab(id);}} onAddTab={choose} onOpenSettings={()=>setSettingsOpen(true)} isMaximized={maximized} windowEnabled={services.capabilities.window} onToggleMaximize={()=>void services.window.maximize().catch(report)} onMinimize={()=>void services.window.minimize().catch(report)} onRequestClose={()=>void services.window.requestClose().catch(report)}/>
     {state.error&&<div role="alert" className="px-5 py-2 bg-amber-50 text-amber-900 text-sm">{state.error}<button className="ml-5" onClick={()=>appStore.setState({error:undefined})}>关闭提示</button></div>}
+    {closingText&&<div role="status" className="px-5 py-2 bg-amber-50 text-sm">{closingText}</div>}
+    {closePrompt&&<div className="fixed inset-0 z-[70] bg-black/30 flex items-center justify-center"><div role="dialog" aria-label="关闭前保存" className="bg-white rounded-xl p-6 max-w-lg shadow-xl"><p>尚未关闭：{closePrompt.error}</p><p className="text-sm text-slate-500 my-3">修改仍保留在当前窗口中。可取消关闭继续编辑，或重试保存。</p><div className="flex gap-4 text-sm"><button onClick={()=>{closePrompt.ids.forEach(id=>sessions.get(id)?.cancelClose());if(closePrompt.requestId)void services.window.closeReady(closePrompt.requestId,false);setClosePrompt(undefined);}}>取消关闭</button><button onClick={()=>void(async()=>{try{for(const id of closePrompt.ids){const s=sessions.get(id);s?.cancelClose();if(s?.store.getState().saveState==='error')await s.retry();}await finishClose(closePrompt.ids,closePrompt.requestId);}catch(e){setClosePrompt({...closePrompt,error:String(e)});}})()}>重试保存并关闭</button><button className="text-red-700" onClick={()=>void(async()=>{try{for(const id of closePrompt.ids){const s=sessions.get(id);await s?.discard();s?.cancelClose();}await finishClose(closePrompt.ids,closePrompt.requestId);}catch(e){setClosePrompt({...closePrompt,error:String(e)});}})()}>放弃未保存修改并关闭</button></div></div></div>}
     {opening&&<div role="status" className="px-5 py-2 text-sm">正在打开文件…<button className="ml-4" onClick={()=>{openAbort.current?.abort();passwordRequest?.reject(new DOMException('已取消','AbortError'));setPassword('');setPasswordRequest(undefined);}}>取消打开</button></div>}
     {session?(session.handle.byteLength===0?<SessionView key={session.handle.docId} session={session} services={services}/>:<DocumentReader key={session.handle.docId} session={session} services={services} pool={pool} prompt={prompt}/>):<main className="flex-1 flex flex-col items-center justify-center gap-5">
       <div className="w-20 h-20 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center"><FileText size={36}/></div>

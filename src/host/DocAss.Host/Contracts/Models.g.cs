@@ -226,6 +226,8 @@ public sealed record Settings
     public double StrokeWidth { get; init; } = default!;
     public double Opacity { get; init; } = default!;
     public JsonElement Window { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement[]? ToolPreferences { get; init; } = default!;
 }
 public sealed record NativePage
 {
