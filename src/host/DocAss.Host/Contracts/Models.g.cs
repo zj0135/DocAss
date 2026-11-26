@@ -228,6 +228,8 @@ public sealed record Settings
     public JsonElement Window { get; init; } = default!;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonElement[]? ToolPreferences { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OcrSettings? Ocr { get; init; } = default!;
 }
 public sealed record NativePage
 {
@@ -243,9 +245,91 @@ public sealed record NativePage
     public JsonElement? Reason { get; init; } = default!;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NativeSpace[]? Spaces { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? HasImages { get; init; } = default!;
 }
 public sealed record NativeSpace
 {
     public string Text { get; init; } = default!;
     public double[] Baseline { get; init; } = default!;
+}
+public sealed record OcrSettings
+{
+    public string ModelTier { get; init; } = default!;
+    public string Backend { get; init; } = default!;
+    public long CacheMiB { get; init; } = default!;
+}
+public sealed record OcrRaster
+{
+    public PageInfo PageInfo { get; init; } = default!;
+    public long Width { get; init; } = default!;
+    public long Height { get; init; } = default!;
+    public double Dpi { get; init; } = default!;
+    public double[] RasterToPage { get; init; } = default!;
+    public string Kind { get; init; } = default!;
+}
+public sealed record OcrStart
+{
+    public string DocId { get; init; } = default!;
+    public long Page { get; init; } = default!;
+    public OcrRaster Raster { get; init; } = default!;
+    public long Priority { get; init; } = default!;
+    public bool Force { get; init; } = default!;
+}
+public sealed record OcrProfile
+{
+    public string Fingerprint { get; init; } = default!;
+    public string ModelHash { get; init; } = default!;
+    public string EngineVersion { get; init; } = default!;
+    public string ModelTier { get; init; } = default!;
+    public string Backend { get; init; } = default!;
+    public string Preprocessing { get; init; } = default!;
+}
+public sealed record OcrTicket
+{
+    public string DocId { get; init; } = default!;
+    public string JobId { get; init; } = default!;
+    public string SubscriptionId { get; init; } = default!;
+    public long Page { get; init; } = default!;
+    public string ContentRevision { get; init; } = default!;
+    public long PageGeneration { get; init; } = default!;
+    public OcrProfile Profile { get; init; } = default!;
+    public bool NeedsRaster { get; init; } = default!;
+}
+public sealed record OcrStatus
+{
+    public string DocId { get; init; } = default!;
+    public string JobId { get; init; } = default!;
+    public string SubscriptionId { get; init; } = default!;
+    public long Page { get; init; } = default!;
+    public string ContentRevision { get; init; } = default!;
+    public long PageGeneration { get; init; } = default!;
+    public OcrProfile Profile { get; init; } = default!;
+    public bool NeedsRaster { get; init; } = default!;
+    public string Phase { get; init; } = default!;
+    public bool NativeRunning { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Error { get; init; } = default!;
+    public long CompletedPages { get; init; } = default!;
+    public long TotalPages { get; init; } = default!;
+}
+public sealed record OcrLine
+{
+    public string Text { get; init; } = default!;
+    public Glyph[] Glyphs { get; init; } = default!;
+}
+public sealed record OcrResult
+{
+    public string DocId { get; init; } = default!;
+    public string JobId { get; init; } = default!;
+    public string ContentRevision { get; init; } = default!;
+    public long PageGeneration { get; init; } = default!;
+    public OcrProfile Profile { get; init; } = default!;
+    public OcrRaster Raster { get; init; } = default!;
+    public OcrLine[] Lines { get; init; } = default!;
+    public bool Empty { get; init; } = default!;
+    public string Device { get; init; } = default!;
+    public bool Fallback { get; init; } = default!;
+    public bool Cached { get; init; } = default!;
+    public double ElapsedMs { get; init; } = default!;
 }

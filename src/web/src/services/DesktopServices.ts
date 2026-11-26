@@ -1,12 +1,12 @@
 import { Webview2Transport } from '../bridge/webview2Transport';
 import { ServiceError, validate } from '../contracts';
-import type { Settings, DocHandle, CommitResult } from '../contracts';
+import type { Settings, DocHandle, CommitResult,OcrStatus,OcrTicket,OcrResult } from '../contracts';
 import type { AppServices, Bootstrap, Capabilities, DocumentState } from './AppServices';
 import type { OpenResult, NativePage } from '../documents/types';
 import { buildPageText } from '../text/model';
 
 export class DesktopServices implements AppServices {
-  readonly capabilities: Capabilities = { desktop: true, window: true, persistentStorage: true, credentials: true, nativeText: true, ocr: false, llm: false };
+  readonly capabilities: Capabilities = { desktop: true, window: true, persistentStorage: true, credentials: true, nativeText: true, ocr: true, llm: false };
   private transport: Webview2Transport;
   private local?: Bootstrap['loopback'];
   constructor(transport: Webview2Transport) { this.transport = transport; }
@@ -25,13 +25,21 @@ export class DesktopServices implements AppServices {
     close: docId => this.transport.request('doc.close', { docId }),
     reacquire: docId => this.transport.request<{handle:DocHandle;documentRevision:number}>('doc.reacquire', { docId }),
   };
-  text: AppServices['text'] = { getPage: async (docId,page,signal) => {
+  text: AppServices['text'] = { getPage:async(id,page,signal)=>buildPageText(await this.text.getNative(id,page,signal)),getNative: async (docId,page,signal) => {
     const jobId=crypto.randomUUID();validate('Id',docId);
     const cancel=()=>{void this.transport.request('text.cancel',{docId,jobId}).catch(()=>{});};signal?.addEventListener('abort',cancel,{once:true});
-    try {const response=await fetch(`/_host/doc/${docId}/text/${page}/${jobId}`,{signal});const result=await response.json();if(!response.ok)throw new ServiceError(result.code??'TEXT_UNRELIABLE',result.message??'文字提取失败');const raw=result as NativePage;if(raw.docId!==docId||raw.jobId!==jobId||raw.pageInfo.page!==page)throw new Error('文字任务版本不匹配');return await buildPageText(raw);}
+    try {const response=await fetch(`/_host/doc/${docId}/text/${page}/${jobId}`,{signal});const result=await response.json();if(!response.ok)throw new ServiceError(result.code??'TEXT_UNRELIABLE',result.message??'文字提取失败');const raw=validate<NativePage>('NativePage',result);if(raw.docId!==docId||raw.jobId!==jobId||raw.pageInfo.page!==page)throw new Error('文字任务版本不匹配');return raw;}
     finally {signal?.removeEventListener('abort',cancel);}
   } };
-  ocr: AppServices['ocr'] = { start: async () => { throw new ServiceError('UNCONFIGURED', '识别服务尚未就绪'); } };
+  ocr: AppServices['ocr'] = {
+    start:async(request,signal)=>validate<OcrTicket>('OcrTicket',await this.transport.request('ocr.start',request,signal,120000)),
+    upload:async(ticket,blob,signal)=>{const response=await fetch(`/_host/doc/${ticket.docId}/ocr/${ticket.jobId}/raster`,{method:'PUT',headers:{'Content-Type':'image/png'},body:blob,signal});if(!response.ok){const error=await response.json();throw new ServiceError(error.code??'OCR_UPLOAD',error.message??'识别图像上传失败');}},
+    status:async ticket=>validate<OcrStatus>('OcrStatus',await this.transport.request('ocr.status',{docId:ticket.docId,jobId:ticket.jobId,subscriptionId:ticket.subscriptionId})),
+    result:async(ticket,signal)=>{const response=await fetch(`/_host/doc/${ticket.docId}/ocr/${ticket.jobId}/result/${ticket.subscriptionId}`,{signal});const value=await response.json();if(!response.ok)throw new ServiceError(value.code??'OCR_FAILED',value.message??'识别结果不可用');return validate<OcrResult>('OcrResult',value);},
+    unsubscribe:ticket=>this.transport.request('ocr.unsubscribe',{docId:ticket.docId,subscriptionId:ticket.subscriptionId}),
+    subscribe:fn=>this.transport.subscribe(event=>{if(event.topic==='ocr.changed')fn(validate<OcrStatus>('OcrStatus',event.payload));}),
+    getOverride:(docId,page)=>this.transport.request('ocr.getOverride',{docId,page}),setOverride:(docId,page,mode)=>this.transport.request('ocr.setOverride',{docId,page,mode}),clearCache:()=>this.transport.request('ocr.clearCache'),
+  };
   clipboard: AppServices['clipboard'] = {write:async(docId,text)=>{
     validate('Id',docId);const response=await fetch(`/_host/doc/${docId}/clipboard`,{method:'POST',headers:{'Content-Type':'text/plain'},body:text});if(!response.ok)throw new ServiceError('CLIPBOARD_FAILED','无法写入剪贴板，请重试');
   }};

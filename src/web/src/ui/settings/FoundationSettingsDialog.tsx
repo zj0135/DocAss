@@ -5,7 +5,7 @@ import type { AppServices } from '../../services/AppServices';
 
 export function FoundationSettingsDialog({ services, initial, onSaved, onClose }: { services: AppServices; initial: Settings; onSaved: (settings: Settings) => void; onClose: () => void }) {
   const [draft,setDraft] = useState(initial), [providers,setProviders] = useState<Provider[]>([]), [selected,setSelected] = useState('');
-  const [key,setKey] = useState(''), [error,setError] = useState(''), [busy,setBusy] = useState(false), [loaded,setLoaded] = useState(false);
+  const [key,setKey] = useState(''), [error,setError] = useState(''), [cacheStatus,setCacheStatus] = useState(''), [busy,setBusy] = useState(false), [loaded,setLoaded] = useState(false);
   const provider = providers.find(p=>p.id===selected);
   useEffect(()=>{ let active=true;void Promise.all([services.providers.list(),services.settings.get()]).then(([list,settings])=>{if(active){setProviders(list);setSelected(list[0]?.id??'');setDraft(settings);setLoaded(true);}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;}; },[services]);
   const close = () => { setKey(''); onClose(); };
@@ -24,6 +24,14 @@ export function FoundationSettingsDialog({ services, initial, onSaved, onClose }
         {error && <p role="alert" className="text-red-600">{error}</p>}
         <label className="block">标注作者<input disabled={!loaded||busy} aria-label="标注作者" className="settings-input" value={draft.author} onChange={e=>setDraft({...draft,author:e.target.value})}/></label>
         <label className="block">对话面板宽度<input disabled={!loaded||busy} aria-label="对话面板宽度" type="number" min={340} max={640} className="settings-input" value={draft.chatWidth} onChange={e=>setDraft({...draft,chatWidth:Number(e.target.value)})}/></label>
+        <fieldset disabled={!loaded||busy||!services.capabilities.ocr} className="border-t pt-4 space-y-3"><legend className="font-semibold">本机文字识别</legend>
+          <label className="block">模型档位 <select aria-label="OCR 模型档位" value={draft.ocr?.modelTier??'Small'} onChange={e=>setDraft({...draft,ocr:{modelTier:e.target.value as 'Tiny'|'Small'|'Medium',backend:draft.ocr?.backend??'Auto',cacheMiB:draft.ocr?.cacheMiB??512}})}>{['Tiny','Small','Medium'].map(t=><option key={t}>{t}</option>)}</select></label>
+          <label className="block">计算设备 <select aria-label="OCR 计算设备" value={draft.ocr?.backend??'Auto'} onChange={e=>setDraft({...draft,ocr:{modelTier:draft.ocr?.modelTier??'Small',backend:e.target.value as 'Auto'|'Cpu',cacheMiB:draft.ocr?.cacheMiB??512}})}><option value="Auto">自动选择（失败后回退 CPU）</option><option value="Cpu">仅 CPU</option></select></label>
+          <label className="block">文档与 OCR 缓存上限（MiB） <input type="number" aria-label="OCR 缓存上限" min={128} max={4096} value={draft.ocr?.cacheMiB??512} onChange={e=>setDraft({...draft,ocr:{modelTier:draft.ocr?.modelTier??'Small',backend:draft.ocr?.backend??'Auto',cacheMiB:Number(e.target.value)}})}/></label>
+          <button onClick={()=>{setError('');setCacheStatus('');void services.ocr.clearCache().then(r=>setCacheStatus(`已清理 ${Math.round(r.removedBytes/1024/1024)} MiB 缓存；在用文档和结果保留`)).catch(e=>setError(String(e)));}}>清理未使用的文档与 OCR 缓存</button>
+          {cacheStatus&&<p role="status" className="text-slate-600">{cacheStatus}</p>}
+        </fieldset>
+        {!services.capabilities.ocr&&<p className="text-xs text-slate-500">真实 OCR 需要桌面服务，浏览器模式不进行识别。</p>}
         <div className="border-t border-slate-200 pt-4 flex justify-between"><h3 className="font-semibold">模型提供方</h3><button disabled={!loaded||busy} onClick={add} className="text-blue-600">添加提供方</button></div>
         {providers.length===0 && <p className="text-slate-500">尚未配置提供方。</p>}
         {providers.length>0 && <select aria-label="提供方" className="settings-input" value={selected} onChange={e=>{setSelected(e.target.value);setKey('');}}>{providers.map(p=><option key={p.id} value={p.id}>{p.name}{p.hasKey?'（已保存密钥）':''}</option>)}</select>}

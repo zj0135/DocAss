@@ -121,7 +121,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       {/* Right: Status by Priority (Image 1, 2, 4) */}
       <div className="flex items-center space-x-2">
         {/* Priority 1: OCR In Progress (Image 4) */}
-        {saveState&&saveState!=='saved'?<span role="status" data-testid="save-state" className={saveState==='error'?'text-red-700':'text-amber-700'}>{saveState==='error'?'保存失败':saveState==='pending'?'待保存':'保存中…'}</span>:activeTab.ocrStatus?.isRecognizing ? (
+        {saveState==='error'?<span role="status" data-testid="save-state" className="text-red-700">保存失败</span>:activeTab.ocrStatus?.isRecognizing ? (
           <div className="flex items-center space-x-2 text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
             <Scan className="w-3 h-3 animate-spin" />
             <span className="font-medium text-[11.5px]">
@@ -145,7 +145,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               </button>
             )}
           </div>
-        ) : isSaved ? (
+        ) : saveState&&saveState!=='saved'?<span role="status" data-testid="save-state" className="text-amber-700">{saveState==='pending'?'待保存':'保存中…'}</span>:isSaved ? (
           /* Priority 2: Auto-save Completed (Image 2) */
           <div className="flex items-center space-x-1.5 text-green-600 font-medium">
             <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />

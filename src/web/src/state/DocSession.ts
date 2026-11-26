@@ -4,6 +4,7 @@ import type {Command,CommitCommand,DocHandle,Mutation,Annotation} from '../contr
 import type {AppServices,DocumentState} from '../services/AppServices';
 import {AnnotationHistory,applyAnnotations,inverseMutations} from '../annotations/model';
 import type {Tool,ToolStyle,EditDraft} from '../annotations/model';
+import type {DocumentText} from '../ocr/DocumentText';
 
 type Pending={command:Command;payload?:CommitCommand;resolve:()=>void;reject:(error:unknown)=>void};
 export class DocSession {
@@ -20,6 +21,7 @@ export class DocSession {
   private annotationRevisions=new Map<string,number>();
   private services:AppServices;
   migrationFrom?:string;
+  text?:DocumentText;
   constructor(handle:DocHandle,services:AppServices){this.handle=handle;this.services=services;this.store.setState({access:handle.access});}
   async reacquire(){const {handle}=await this.services.documents.reacquire(this.handle.docId);this.handle=handle;await this.restore();this.store.setState({access:handle.access,error:undefined});}
   async restore(){const state=await this.services.persistence.read(this.handle.docId);if(this.closed)return;this.revision=Math.max(this.revision,state.documentRevision);for(const a of state.annotations)this.annotationRevisions.set(a.id,Math.max(a.revision,this.annotationRevisions.get(a.id)??0));this.store.setState({...state,annotations:this.pending.reduce((a,p)=>applyAnnotations(a,p.command.mutations),state.annotations)});}
@@ -56,7 +58,7 @@ export class DocSession {
   cancelClose(){if(!this.closed)this.store.setState({closeState:'open'});this.closing=undefined;}
   async discard(){await this.worker;this.pending=[];this.failed=false;this.history.clear();this.historyChanged();this.store.setState({editor:undefined,saveState:'saved',error:undefined});await this.restore();}
   close():Promise<void>{return this.closing??=this.closeCore();}
-  private async closeCore(){await this.prepareClose();await this.services.documents.close(this.handle.docId);this.closed=true;this.store.setState({closeState:'closed'});}
+  private async closeCore(){await this.prepareClose();await this.services.documents.close(this.handle.docId);this.text?.dispose();this.closed=true;this.store.setState({closeState:'closed'});}
   async runFixture(){this.stop();const run=new AbortController();this.run=run;this.store.setState({running:true,reply:''});try{await this.services.fixtureReply(this.handle.docId,run.signal,text=>{if(!this.closed&&this.run===run&&!run.signal.aborted)this.store.setState(s=>({reply:s.reply+text}));});}catch(e){if(!run.signal.aborted)this.store.setState({error:e instanceof Error?e.message:String(e)});}finally{if(this.run===run&&!this.closed)this.store.setState({running:false});}}
-  stop(){this.run?.abort();this.run=undefined;this.store.setState({running:false});}
+  stop(){this.run?.abort();this.run=undefined;this.text?.cancel();this.store.setState({running:false});}
 }

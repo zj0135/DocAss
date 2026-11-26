@@ -12,6 +12,7 @@ namespace DocAss.Host.Documents;
 public sealed record NativePageResult(string DocId, string JobId, string ContentRevision, int PageGeneration, string Status, PageInfo PageInfo, Glyph[] Glyphs, string ProfileFingerprint, string? Reason)
 {
     public NativeSpace[] Spaces {get;init;}=[];
+    public bool HasImages {get;init;}
 }
 public sealed class TextGeometryService(DocumentService files)
 {
@@ -51,7 +52,7 @@ public sealed class TextGeometryService(DocumentService files)
             {
                 result = await Task.Run(() =>
                 {
-                    if (doc.Image != null) return new NativePageResult(docId, jobId, doc.Snapshot.Hash, 0, "unreliable", doc.Image.PageInfo, [], Profile, "此页需要 OCR");
+                    if (doc.Image != null) return new NativePageResult(docId, jobId, doc.Snapshot.Hash, 0, "unreliable", doc.Image.PageInfo, [], Profile, "此页需要 OCR"){HasImages=true};
                     var log=new GeometryLog();
                     using var pdf = PdfDocument.Open(doc.Snapshot.Path, new ParsingOptions { Password = doc.Password ?? "",Logger=log });
                     linked.Token.ThrowIfCancellationRequested();
@@ -122,6 +123,6 @@ public sealed class TextGeometryService(DocumentService files)
             try { Contract.Check("Glyph", Json.Element(glyph)); glyphs.Add(glyph); }
             catch (AppException) { unreliable = true; }
         }
-        return new(docId, jobId, hash, 0, unreliable || glyphs.Count == 0 ? "unreliable" : "ready", info, glyphs.ToArray(), Profile, unreliable ? "部分字形无法可靠映射，请使用页面图像或 OCR" : glyphs.Count == 0 ? "此页没有原生文字" : null){Spaces=spaces.ToArray()};
+        return new(docId, jobId, hash, 0, unreliable || glyphs.Count == 0 ? "unreliable" : "ready", info, glyphs.ToArray(), Profile, unreliable ? "部分字形无法可靠映射，请使用页面图像或 OCR" : glyphs.Count == 0 ? "此页没有原生文字" : null){Spaces=spaces.ToArray(),HasImages=page.NumberOfImages>0};
     }
 }

@@ -142,8 +142,11 @@ public sealed partial class MainWindow
     private async Task<System.Windows.Point> GlyphScreenPointAsync(Documents.NativePageResult page,int index,bool after,int rotation,bool vertical=false)
     {
         var q=page.Glyphs[index].Quad;var b=page.PageInfo.PageBox;
-        var u=((after?q[2]-.3:q[0]+.3)-b[0])/(b[2]-b[0]);var v=((q[1]+q[5])/2-b[1])/(b[3]-b[1]);
-        if(vertical){u=((q[0]+q[2])/2-b[0])/(b[2]-b[0]);v=((after?q[1]+.3:q[5]-.3)-b[1])/(b[3]-b[1]);}
+        // Canonical quads start at the lowest vertex, which may be on either side of a tilted glyph.
+        var left=new[]{q[0],q[2],q[4],q[6]}.Min();var right=new[]{q[0],q[2],q[4],q[6]}.Max();
+        var bottom=new[]{q[1],q[3],q[5],q[7]}.Min();var top=new[]{q[1],q[3],q[5],q[7]}.Max();
+        var u=(left+(right-left)*(after ? .85 : .15)-b[0])/(b[2]-b[0]);var v=((bottom+top)/2-b[1])/(b[3]-b[1]);
+        if(vertical){u=((left+right)/2-b[0])/(b[2]-b[0]);v=(bottom+(top-bottom)*(after ? .15 : .85)-b[1])/(b[3]-b[1]);}
         var (x,y)=((rotation+page.PageInfo.Rotate)%360) switch {90=>(v,u),180=>(1-u,v),270=>(1-v,1-u),_=>(u,1-v)};
         var value=await web.CoreWebView2.ExecuteScriptAsync("(()=>{const r=document.querySelector('[data-page=\""+page.PageInfo.Page+"\"]').getBoundingClientRect(),p="+Json.String(new{x,y})+";return {x:r.left+r.width*p.x,y:r.top+r.height*p.y};})()");
         using var point=System.Text.Json.JsonDocument.Parse(value);return web.PointToScreen(new System.Windows.Point(point.RootElement.GetProperty("x").GetDouble(),point.RootElement.GetProperty("y").GetDouble()));

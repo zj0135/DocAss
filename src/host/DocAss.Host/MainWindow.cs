@@ -31,6 +31,7 @@ public sealed partial class MainWindow : Window
     private readonly DocumentRegistry documents;
     private readonly DocumentService files;
     private readonly TextGeometryService geometry;
+    private readonly Ocr.OcrScheduler ocr;
     private readonly SettingsService settings;
     private readonly AttachmentService attachments;
     private readonly LoopbackServer loopback;
@@ -50,6 +51,7 @@ public sealed partial class MainWindow : Window
         dataDirectory = verificationOutput == null ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DocAss", "data") : Path.Combine(Path.GetDirectoryName(verificationOutput)!, Path.GetFileNameWithoutExtension(verificationOutput)+"-data");
         storage = new(Path.Combine(dataDirectory, "workspace.db")); documents = new(dataDirectory); settings = new(storage); attachments = new(storage, documents, dataDirectory);
         files = new(dataDirectory, documents, storage); geometry = new(files);
+        ocr=new(files,geometry,settings,storage,dataDirectory);ocr.Changed+=value=>Dispatcher.BeginInvoke(()=>Emit("ocr.changed",value));
         loopback = new(origin); bridge = new(origin); resources = new(Path.Combine(AppContext.BaseDirectory, "wwwroot"), origin);
         close = new(async () => { await SavePlacementAsync(); await storage.DrainAsync(); if (!storage.IsReadOnly) await storage.BackupAsync(); });
         Title = "DocAss 文档助手"; Width = 1280; Height = 800; WindowStyle = WindowStyle.SingleBorderWindow; ResizeMode = ResizeMode.CanResize;
@@ -59,7 +61,7 @@ public sealed partial class MainWindow : Window
         StateChanged += (_, _) => Emit("window.stateChanged", new { maximized = WindowState == WindowState.Maximized });
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         SourceInitialized += (_, _) => System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle)?.AddHook(DisplayMessage);
-        RegisterMethods(); RegisterDocumentMethods();RegisterCloseMethods();
+        RegisterMethods(); RegisterDocumentMethods();RegisterCloseMethods();RegisterOcrMethods();
     }
     private async Task InitializeAsync()
     {
@@ -139,6 +141,7 @@ public sealed partial class MainWindow : Window
             documents.Resolve(parts[2]);
             var documentResponse = await DocumentResourceAsync(parts, request, token);
             if (documentResponse != null) return documentResponse;
+            var ocrResponse=await OcrResourceAsync(parts,request,token);if(ocrResponse!=null)return ocrResponse;
             if (parts.Length == 4 && parts[3] == "commands" && request.Method == "POST")
             {
                 using var json = JsonDocument.Parse(await BoundedRead.ReadAsync(request.Body ?? Stream.Null, 16 * 1024 * 1024, token));
@@ -156,7 +159,7 @@ public sealed partial class MainWindow : Window
     private void RegisterMethods()
     {
         void Register(string name, Func<JsonElement, Task<object?>> action) => bridge.Register(name, (p, _) => action(p));
-        Register("app.bootstrap", async p => { Contract.Fields(p); return new { version = "0.3.0", fixturesEnabled = acceptance != null, capabilities = new { desktop = true, window = true, persistentStorage = true, credentials = true, nativeText = true, ocr = false, llm = false }, loopback = new { origin = loopback.Origin, token = loopback.SessionToken }, settings = await settings.GetAsync(), window = new { maximized = WindowState == WindowState.Maximized }, readOnly = storage.IsReadOnly }; });
+        Register("app.bootstrap", async p => { Contract.Fields(p); return new { version = "0.3.0", fixturesEnabled = acceptance != null, capabilities = new { desktop = true, window = true, persistentStorage = true, credentials = true, nativeText = true, ocr = true, llm = false }, loopback = new { origin = loopback.Origin, token = loopback.SessionToken }, settings = await settings.GetAsync(), window = new { maximized = WindowState == WindowState.Maximized }, readOnly = storage.IsReadOnly }; });
         Register("window.minimize", p => { Contract.Fields(p); WindowState = WindowState.Minimized; return Task.FromResult<object?>(null); });
         Register("window.maximize", p => { Contract.Fields(p); WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; return Task.FromResult<object?>(null); });
         Register("window.requestClose", p => { Contract.Fields(p); Dispatcher.BeginInvoke(Close); return Task.FromResult<object?>(null); });
@@ -174,7 +177,7 @@ public sealed partial class MainWindow : Window
         Register("store.read", async p => { Contract.Fields(p, "docId", "entity"); return await storage.ReadEntitiesAsync(documents.Resolve(p.GetProperty("docId").GetString()!).DocHash, p.GetProperty("entity").GetString()!); });
         Register("store.snapshot", async p => { Contract.Fields(p, "docId"); return await storage.ReadDocumentAsync(documents.Resolve(p.GetProperty("docId").GetString()!).DocHash); });
         Register("doc.reacquire", async p => { Contract.Fields(p, "docId"); var handle = documents.Reacquire(p.GetProperty("docId").GetString()!); return new { handle, documentRevision = await storage.ReadRevisionAsync(handle.DocHash) }; });
-        Register("doc.close", async p => { Contract.Fields(p, "docId"); var id = p.GetProperty("docId").GetString()!; documents.Resolve(id); await storage.DrainAsync(); geometry.Forget(id); files.Close(id); return null; });
+        Register("doc.close", async p => { Contract.Fields(p, "docId"); var id = p.GetProperty("docId").GetString()!; documents.Resolve(id); await storage.DrainAsync(); ocr.Forget(id);geometry.Forget(id); files.Close(id); return null; });
         Register("doc.flush", async p => { Contract.Fields(p, "docId"); documents.Resolve(p.GetProperty("docId").GetString()!); await storage.DrainAsync(); return null; });
         Register("attachment.begin", p => { Contract.Fields(p, "docId"); return Task.FromResult<object?>(new { uploadId = attachments.Begin(p.GetProperty("docId").GetString()!) }); });
         Register("attachment.commit", async p => { Contract.Fields(p, "docId", "uploadId"); return new { attachmentId = await attachments.CommitAsync(p.GetProperty("docId").GetString()!, p.GetProperty("uploadId").GetString()!) }; });
@@ -222,7 +225,7 @@ public sealed partial class MainWindow : Window
     private async Task CleanupAsync()
     {
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
-        lifetime.Cancel(); acceptanceWriter?.Dispose(); bridge.Dispose(); await loopback.DisposeAsync(); files.Dispose(); await storage.DisposeAsync(); documents.Dispose(); databaseLease?.Dispose(); web.Dispose(); lifetime.Dispose();
+        lifetime.Cancel(); acceptanceWriter?.Dispose(); bridge.Dispose(); await loopback.DisposeAsync(); await ocr.DisposeAsync();files.Dispose(); await storage.DisposeAsync(); documents.Dispose(); databaseLease?.Dispose(); web.Dispose(); lifetime.Dispose();
     }
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
     {

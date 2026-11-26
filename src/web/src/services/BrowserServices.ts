@@ -73,9 +73,9 @@ export class BrowserServices implements AppServices {
     close: async id => { this.resolve(id); this.handles.delete(id); this.sources.delete(id); },
     reacquire: async id => ({ handle: this.resolve(id), documentRevision: (await this.persistence.read(id)).documentRevision }),
   };
-  text = { getPage: unsupported };
+  text = { getNative:unsupported,getPage: unsupported };
   clipboard = {write:async(_docId:string,text:string)=>navigator.clipboard.writeText(text)};
-  ocr = { start: unsupported };
+  ocr:AppServices['ocr'] = { start: unsupported,upload:unsupported,status:unsupported,result:unsupported,unsubscribe:async()=>{},subscribe:()=>()=>{},getOverride:async()=> 'auto',setOverride:unsupported,clearCache:unsupported };
   persistence: AppServices['persistence'] = {
     commit: async (payload: CommitCommand) => {
       validate('CommitCommand', payload); const handle = this.resolve(payload.docId);

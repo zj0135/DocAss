@@ -10,7 +10,7 @@ public sealed record DocumentSnapshot(long DocumentRevision, JsonElement[] Annot
 
 public sealed class StorageService : IAsyncDisposable
 {
-    public const int SchemaVersion = 2;
+    public const int SchemaVersion = 3;
     public string DatabasePath { get; }
     public string BackupPath => DatabasePath + ".backup";
     public bool IsReadOnly { get; private set; }
@@ -49,7 +49,7 @@ public sealed class StorageService : IAsyncDisposable
                 using var tx = connection.BeginTransaction();
                 Execute(connection, SchemaSql, tx);
                 FaultInjection?.Invoke("migration");
-                Execute(connection, "PRAGMA user_version=2", tx); tx.Commit();
+                Execute(connection, "PRAGMA user_version=3", tx); tx.Commit();
             }
             return true;
         });
@@ -220,6 +220,7 @@ public sealed class StorageService : IAsyncDisposable
         CREATE TABLE IF NOT EXISTS source_paths(docHash TEXT NOT NULL REFERENCES documents(docHash),path TEXT NOT NULL,PRIMARY KEY(docHash,path));
         CREATE TABLE IF NOT EXISTS recent_items(docHash TEXT PRIMARY KEY REFERENCES documents(docHash),openedAt TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS migration_decisions(oldHash TEXT NOT NULL REFERENCES documents(docHash),newHash TEXT NOT NULL REFERENCES documents(docHash),decision TEXT NOT NULL,PRIMARY KEY(oldHash,newHash));
+        CREATE TABLE IF NOT EXISTS ocr_overrides(docHash TEXT NOT NULL REFERENCES documents(docHash),page INTEGER NOT NULL,mode TEXT NOT NULL,PRIMARY KEY(docHash,page));
         CREATE TABLE IF NOT EXISTS annotations(docHash TEXT NOT NULL REFERENCES documents(docHash),annotationId TEXT NOT NULL,revision INTEGER NOT NULL,payload TEXT NOT NULL CHECK(json_valid(payload)),PRIMARY KEY(docHash,annotationId));
         CREATE TABLE IF NOT EXISTS conversations(docHash TEXT NOT NULL REFERENCES documents(docHash),conversationId TEXT NOT NULL,payload TEXT NOT NULL CHECK(json_valid(payload)),PRIMARY KEY(docHash,conversationId));
         CREATE TABLE IF NOT EXISTS messages(docHash TEXT NOT NULL,messageId TEXT NOT NULL,conversationId TEXT NOT NULL,sequence INTEGER NOT NULL,state TEXT NOT NULL,payload TEXT NOT NULL CHECK(json_valid(payload)),PRIMARY KEY(docHash,messageId),FOREIGN KEY(docHash,conversationId) REFERENCES conversations(docHash,conversationId) ON DELETE CASCADE);

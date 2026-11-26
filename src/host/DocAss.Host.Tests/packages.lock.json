@@ -82,6 +82,54 @@
         "resolved": "13.0.3",
         "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
       },
+      "Sdcb.SimdPaddleOCR": {
+        "type": "Transitive",
+        "resolved": "2.0.0",
+        "contentHash": "ewb0TEBisxHWF0Khkgllair9wZ+Nij25mXvtLtg0wPLCZI0/PKLNJxwuuqzX7Men98rr5d3qeLZ9m5sDdLpRwA==",
+        "dependencies": {
+          "Sdcb.SimdPaddleOCR.ModelProvider": "1.0.0"
+        }
+      },
+      "Sdcb.SimdPaddleOCR.ModelProvider": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "pVd52DFQ0J7Z6ThtCxrj3r0usMSmEUicKsTLsfhd658/eY8LhjFm9byagle9DlZeAghHI5KSaJZbS1p4To4+Zg=="
+      },
+      "Sdcb.SimdPaddleOCR.Models.ChineseV6Medium": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "g1zNbtQeoikQkGqdqpAvsUlc64o37pnTQYZBmoy4GS55qqkY04d7NW9KK/FmpAGd0p9t580T+b0vKB6Z4jsWMQ==",
+        "dependencies": {
+          "Sdcb.SimdPaddleOCR.ModelProvider": "1.0.0",
+          "Sdcb.SimdPaddleOCR.Models.TextLineOrientation": "1.0.0"
+        }
+      },
+      "Sdcb.SimdPaddleOCR.Models.ChineseV6Small": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "Rvh/agKF/+NdblT1ku0B0dGaCWNnhdgdftTuiG4cfMYYLqJW4ELFCmK6kwumJTIhrt0oU+qBseD/vrZTzNf1ng==",
+        "dependencies": {
+          "Sdcb.SimdPaddleOCR.ModelProvider": "1.0.0",
+          "Sdcb.SimdPaddleOCR.Models.TextLineOrientation": "1.0.0"
+        }
+      },
+      "Sdcb.SimdPaddleOCR.Models.ChineseV6Tiny": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "P+u2b7ykP7ZhJoo7z3QO2DCcDCnhyxVtzTX1PEQcwLSNYWnqR1jOjU9W4qzbrOHSwMfjAg3x5ilwrL+Dfi3cJg==",
+        "dependencies": {
+          "Sdcb.SimdPaddleOCR.ModelProvider": "1.0.0",
+          "Sdcb.SimdPaddleOCR.Models.TextLineOrientation": "1.0.0"
+        }
+      },
+      "Sdcb.SimdPaddleOCR.Models.TextLineOrientation": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "BYdvoOKPj4dmNrIdut8UZB76HyWWBIVYJoNmOoqmDA0dnUnw6niReXRox1WmXcxTZ/6jyijmOTJXmap1iWUTiw==",
+        "dependencies": {
+          "Sdcb.SimdPaddleOCR.ModelProvider": "1.0.0"
+        }
+      },
       "SQLite": {
         "type": "Transitive",
         "resolved": "3.53.4",
@@ -162,7 +210,11 @@
         "dependencies": {
           "Microsoft.Data.Sqlite": "[11.0.0, )",
           "Microsoft.Web.WebView2": "[1.0.4314.35, )",
-          "PdfPig": "[0.1.16, )"
+          "PdfPig": "[0.1.16, )",
+          "Sdcb.SimdPaddleOCR": "[2.0.0, )",
+          "Sdcb.SimdPaddleOCR.Models.ChineseV6Medium": "[1.0.0, )",
+          "Sdcb.SimdPaddleOCR.Models.ChineseV6Small": "[1.0.0, )",
+          "Sdcb.SimdPaddleOCR.Models.ChineseV6Tiny": "[1.0.0, )"
         }
       }
     }

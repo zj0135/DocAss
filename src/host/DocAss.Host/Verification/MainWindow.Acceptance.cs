@@ -53,6 +53,7 @@ public sealed partial class MainWindow
             if(acceptance.Scenario=="hmr") { await VerifyHmrAsync();return; }
             if(acceptance.Scenario=="reading") { await VerifyReadingAsync();return; }
             if(acceptance.Scenario=="annotations") {await VerifyAnnotationsAsync();return;}
+            if(acceptance.Scenario is "ocr" or "ocrBenchmark") {await VerifyOcrAsync();return;}
             NativeInput.GetCursorPos(out originalCursor);originalForeground=NativeInput.GetForegroundWindow();Topmost=true;NativeInput.Activate(this);await Task.Delay(400);
             if(acceptance.Scenario is "closeButton" or "altF4")
             {
@@ -86,7 +87,7 @@ public sealed partial class MainWindow
             acceptanceResults["monitorScenario"]="OS WM_DISPLAYCHANGE with window on removed virtual location; no physical cable unplug claimed";
             acceptanceResults["ok"]=true;await FinishAcceptanceAsync(acceptanceResults);
         }
-        catch(Exception ex){acceptanceResults["ok"]=false;acceptanceResults["error"]=ex.ToString();if(acceptance.Scenario=="reading")acceptanceResults["pageErrors"]=await web.CoreWebView2.ExecuteScriptAsync("window.__readingErrors");await FinishAcceptanceAsync(acceptanceResults);}
+        catch(Exception ex){acceptanceResults["ok"]=false;acceptanceResults["error"]=ex.ToString();if(acceptance.Scenario=="reading")acceptanceResults["pageErrors"]=await web.CoreWebView2.ExecuteScriptAsync("window.__readingErrors");if(acceptance.Scenario.StartsWith("ocr"))acceptanceResults["ocrJobs"]=ocr.Diagnostics;await FinishAcceptanceAsync(acceptanceResults);}
     }
     private void Check(string name,bool pass){acceptanceResults[name]=pass;if(!pass)throw new Exception(name+" failed");}
     private async Task ClickButton(string title)
@@ -156,7 +157,7 @@ public sealed partial class MainWindow
         acceptanceResults["permissionRequests"]=permissionRequests;
         acceptanceResults["browserSecurityFlags"]="none";
         await RunPageCheck("credentialForm", """
-            document.querySelector('button[title="设置"]').click();await until(()=>button('添加提供方'));button('添加提供方').click();await until(()=>document.querySelector('input[aria-label="API Key"]'));
+            document.querySelector('button[title="设置"]').click();await until(()=>button('添加提供方')&&!button('添加提供方').disabled);button('添加提供方').click();await until(()=>document.querySelector('input[aria-label="API Key"]'));
             setValue(document.querySelector('input[aria-label="API Key"]'),'acceptance-only-secret');await pause(30);button('保存').click();await until(()=>!document.querySelector('[role="dialog"]'));
             document.querySelector('button[title="设置"]').click();await until(()=>document.querySelector('input[aria-label="API Key"]'));check(document.querySelector('input[aria-label="API Key"]').value==='','cleared after save');
             setValue(document.querySelector('input[aria-label="API Key"]'),'unsaved-secret');await pause(30);document.querySelector('button[aria-label="关闭设置"]').click();await pause(30);

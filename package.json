@@ -15,6 +15,7 @@
     "test:host": "dotnet test src/host/DocAss.Host.Tests -c Release --logger trx --results-directory artifacts/test-results",
     "test:browser": "playwright test",
     "fixtures": "node docs/fixtures/generate.mjs",
+    "fixtures:ocr": "node docs/fixtures/generate-ocr.mjs",
     "fixtures:setup": "node docs/fixtures/acquire-resources.mjs",
     "test:fixtures": "node docs/fixtures/verify.mjs",
     "verify:desktop": "node scripts/verify-desktop.mjs",

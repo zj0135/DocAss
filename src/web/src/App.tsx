@@ -11,6 +11,7 @@ import type { DocTab } from './types';
 import { buildStamp } from './buildStamp';
 import { DocumentPool } from './documents/DocumentPool';
 import { DocumentReader } from './documents/DocumentReader';
+import {DocumentText} from './ocr/DocumentText';
 import type { OpenResult,RecentDocument } from './documents/types';
 
 const Prototype = lazy(()=>import('./mock/PrototypeApp'));
@@ -44,6 +45,7 @@ function Workspace() {
       try{
         const lease=await pool.acquire(handle.docId,prompt,signal),count=lease.document.pageCount;lease.release();signal.throwIfAborted();
         await services.documents.loaded(handle.docId,count);const session=new DocSession(handle,services);session.migrationFrom=result.previousHash;await session.restore();signal.throwIfAborted();if(windowClosing.current)throw new DOMException('已取消','AbortError');session.store.setState({pageCount:count});sessions.set(handle.docId,session);
+        if(services.capabilities.ocr)session.text=new DocumentText(handle,services,pool,prompt);
         appStore.setState(s=>({tabs:[...s.tabs,handle],activeDocId:handle.docId,error:undefined}));setRecent(await services.documents.recent());
       }catch(e){await pool.close(handle.docId);await services.documents.close(handle.docId);throw e;}
     }catch(e){if(result.status!=='ready')await services.documents.cancelOpen(result.openId);throw e;}

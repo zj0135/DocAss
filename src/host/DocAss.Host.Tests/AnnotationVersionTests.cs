@@ -32,10 +32,14 @@ public sealed class AnnotationVersionTests
         File.Copy(ReadingTests.Fixture("mixed.pdf"),source,true);var b=(await files.OpenAsync(source)).Handle!;await w.Storage.CommitAsync(Payload(b,[new{type="migration.decision",value=new{oldHash=a.DocHash,decision="declined"}}]),w.Documents);files.Close(b.DocId);Assert.Null((await files.OpenAsync(source)).PreviousHash);
         var other=(await files.OpenAsync(ReadingTests.Fixture("blank.pdf"))).Handle!;await Assert.ThrowsAsync<AppException>(()=>files.MigrationInfoAsync(other.DocId,a.DocHash,default));
     }
-    [Fact] public async Task VersionOneSchemaUpgradesWithBackupAndKeepsAnnotations()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task PreviousSchemasUpgradeWithBackupAndKeepAnnotations(int version)
     {
         await using var w=new Workspace();await w.Initialize();await w.Storage.CommitAsync(Payload(w.Handle,[new{type="annotation.put",value=Note(w.Handle.DocHash)}]),w.Documents);
-        await w.Storage.Enqueue(()=>{using var c=w.Storage.OpenWrite();StorageService.Execute(c,"DROP TABLE migration_decisions; PRAGMA user_version=1");return true;});await w.Storage.DisposeAsync();
-        await using var next=new StorageService(w.Storage.DatabasePath);await next.InitializeAsync();Assert.Single(await next.ReadEntitiesAsync(w.Handle.DocHash,"annotations"));Assert.True(File.Exists(next.BackupPath));using var connection=next.OpenRead();Assert.Equal(2L,StorageService.Scalar(connection,"PRAGMA user_version"));Assert.Equal(0L,StorageService.Scalar(connection,"SELECT count(*) FROM migration_decisions"));
+        await w.Storage.Enqueue(()=>{using var c=w.Storage.OpenWrite();StorageService.Execute(c,"DROP TABLE ocr_overrides");if(version==1)StorageService.Execute(c,"DROP TABLE migration_decisions");StorageService.Execute(c,$"PRAGMA user_version={version}");return true;});await w.Storage.DisposeAsync();
+        await using var next=new StorageService(w.Storage.DatabasePath);await next.InitializeAsync();Assert.Single(await next.ReadEntitiesAsync(w.Handle.DocHash,"annotations"));Assert.True(File.Exists(next.BackupPath));using var connection=next.OpenRead();Assert.Equal((long)StorageService.SchemaVersion,StorageService.Scalar(connection,"PRAGMA user_version"));Assert.Equal(0L,StorageService.Scalar(connection,"SELECT count(*) FROM migration_decisions"));
+        Assert.Equal(0L,StorageService.Scalar(connection,"SELECT count(*) FROM ocr_overrides"));
     }
 }

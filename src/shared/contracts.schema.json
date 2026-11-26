@@ -1507,7 +1507,7 @@
         },
         "toolPreferences": {
           "type": "array",
-        "minItems": 0,
+          "minItems": 0,
           "maxItems": 10,
           "items": {
             "type": "object",
@@ -1549,6 +1549,9 @@
             ],
             "additionalProperties": false
           }
+        },
+        "ocr": {
+          "$ref": "#/$defs/OcrSettings"
         }
       },
       "required": [
@@ -1619,6 +1622,9 @@
           },
           "minItems": 0,
           "maxItems": 25000
+        },
+        "hasImages": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -1654,6 +1660,356 @@
       "required": [
         "text",
         "baseline"
+      ],
+      "additionalProperties": false
+    },
+    "OcrSettings": {
+      "type": "object",
+      "properties": {
+        "modelTier": {
+          "enum": [
+            "Tiny",
+            "Small",
+            "Medium"
+          ]
+        },
+        "backend": {
+          "enum": [
+            "Auto",
+            "Cpu"
+          ]
+        },
+        "cacheMiB": {
+          "type": "integer",
+          "minimum": 128,
+          "maximum": 4096
+        }
+      },
+      "required": [
+        "modelTier",
+        "backend",
+        "cacheMiB"
+      ],
+      "additionalProperties": false
+    },
+    "OcrRaster": {
+      "type": "object",
+      "properties": {
+        "pageInfo": {
+          "$ref": "#/$defs/PageInfo"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "dpi": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 1200
+        },
+        "rasterToPage": {
+          "$ref": "#/$defs/Affine"
+        },
+        "kind": {
+          "enum": [
+            "pdf",
+            "image"
+          ]
+        }
+      },
+      "required": [
+        "pageInfo",
+        "width",
+        "height",
+        "dpi",
+        "rasterToPage",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "OcrStart": {
+      "type": "object",
+      "properties": {
+        "docId": {
+          "$ref": "#/$defs/Id"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "raster": {
+          "$ref": "#/$defs/OcrRaster"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "force": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "docId",
+        "page",
+        "raster",
+        "priority",
+        "force"
+      ],
+      "additionalProperties": false
+    },
+    "OcrProfile": {
+      "type": "object",
+      "properties": {
+        "fingerprint": {
+          "$ref": "#/$defs/Hash"
+        },
+        "modelHash": {
+          "$ref": "#/$defs/Hash"
+        },
+        "engineVersion": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "modelTier": {
+          "enum": [
+            "Tiny",
+            "Small",
+            "Medium"
+          ]
+        },
+        "backend": {
+          "enum": [
+            "Auto",
+            "Cpu"
+          ]
+        },
+        "preprocessing": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "fingerprint",
+        "modelHash",
+        "engineVersion",
+        "modelTier",
+        "backend",
+        "preprocessing"
+      ],
+      "additionalProperties": false
+    },
+    "OcrTicket": {
+      "type": "object",
+      "properties": {
+        "docId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "subscriptionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "contentRevision": {
+          "$ref": "#/$defs/Hash"
+        },
+        "pageGeneration": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "profile": {
+          "$ref": "#/$defs/OcrProfile"
+        },
+        "needsRaster": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "docId",
+        "jobId",
+        "subscriptionId",
+        "page",
+        "contentRevision",
+        "pageGeneration",
+        "profile",
+        "needsRaster"
+      ],
+      "additionalProperties": false
+    },
+    "OcrStatus": {
+      "type": "object",
+      "properties": {
+        "docId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "subscriptionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "contentRevision": {
+          "$ref": "#/$defs/Hash"
+        },
+        "pageGeneration": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "profile": {
+          "$ref": "#/$defs/OcrProfile"
+        },
+        "needsRaster": {
+          "type": "boolean"
+        },
+        "phase": {
+          "enum": [
+            "awaitingRaster",
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "nativeRunning": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "completedPages": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "totalPages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      },
+      "required": [
+        "docId",
+        "jobId",
+        "subscriptionId",
+        "page",
+        "contentRevision",
+        "pageGeneration",
+        "profile",
+        "needsRaster",
+        "phase",
+        "nativeRunning",
+        "completedPages",
+        "totalPages"
+      ],
+      "additionalProperties": false
+    },
+    "OcrLine": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "glyphs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Glyph"
+          },
+          "minItems": 0,
+          "maxItems": 25000
+        }
+      },
+      "required": [
+        "text",
+        "glyphs"
+      ],
+      "additionalProperties": false
+    },
+    "OcrResult": {
+      "type": "object",
+      "properties": {
+        "docId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "contentRevision": {
+          "$ref": "#/$defs/Hash"
+        },
+        "pageGeneration": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "profile": {
+          "$ref": "#/$defs/OcrProfile"
+        },
+        "raster": {
+          "$ref": "#/$defs/OcrRaster"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OcrLine"
+          },
+          "minItems": 0,
+          "maxItems": 25000
+        },
+        "empty": {
+          "type": "boolean"
+        },
+        "device": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "fallback": {
+          "type": "boolean"
+        },
+        "cached": {
+          "type": "boolean"
+        },
+        "elapsedMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3600000
+        }
+      },
+      "required": [
+        "docId",
+        "jobId",
+        "contentRevision",
+        "pageGeneration",
+        "profile",
+        "raster",
+        "lines",
+        "empty",
+        "device",
+        "fallback",
+        "cached",
+        "elapsedMs"
       ],
       "additionalProperties": false
     }

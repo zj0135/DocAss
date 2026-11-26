@@ -1,4 +1,4 @@
-import type { CommitCommand, CommitResult, DocHandle, Settings, Provider, PageText, Job, Annotation, Conversation, Message,PageInfo } from '../contracts';
+import type { CommitCommand, CommitResult, DocHandle, Settings, Provider, PageText, NativePage, OcrStart,OcrTicket,OcrStatus,OcrResult, Annotation, Conversation, Message,PageInfo } from '../contracts';
 import type { OpenResult, RecentDocument, DocumentSource } from '../documents/types';
 
 export type Capabilities = { desktop: boolean; window: boolean; persistentStorage: boolean; credentials: boolean; nativeText: boolean; ocr: boolean; llm: boolean };
@@ -22,9 +22,13 @@ export interface AppServices {
     subscribe(onOpen:(result:OpenResult)=>void,onError:(message:string)=>void):()=>void;
     openFixture(name: 'report' | 'contract', signal?: AbortSignal): Promise<DocHandle>; close(docId: string): Promise<void>; reacquire(docId: string): Promise<{ handle: DocHandle; documentRevision: number }>
   };
-  text: { getPage(docId: string, page: number, signal?: AbortSignal): Promise<PageText> };
+  text: { getNative(docId:string,page:number,signal?:AbortSignal):Promise<NativePage>;getPage(docId: string, page: number, signal?: AbortSignal): Promise<PageText> };
   clipboard: {write(docId:string,text:string):Promise<void>};
-  ocr: { start(docId: string, page: number, signal?: AbortSignal): Promise<Job> };
+  ocr: {
+    start(request:OcrStart,signal?:AbortSignal):Promise<OcrTicket>;upload(ticket:OcrTicket,blob:Blob,signal?:AbortSignal):Promise<void>;
+    status(ticket:OcrTicket):Promise<OcrStatus>;result(ticket:OcrTicket,signal?:AbortSignal):Promise<OcrResult>;unsubscribe(ticket:OcrTicket):Promise<void>;
+    subscribe(fn:(status:OcrStatus)=>void):()=>void;getOverride(docId:string,page:number):Promise<'auto'|'native'|'ocr'|'hybrid'>;setOverride(docId:string,page:number,mode:'auto'|'native'|'ocr'|'hybrid'):Promise<void>;clearCache():Promise<{removedBytes:number}>;
+  };
   persistence: { commit(command: CommitCommand): Promise<CommitResult>; getOperation(docId: string, operationId: string): Promise<CommitResult | null>; read(docId: string): Promise<DocumentState> };
   providers: { list(): Promise<Provider[]>; save(provider: Provider, replacementKey?: string, deleteKey?: boolean): Promise<void>; delete(id: string): Promise<void> };
   attachments: { begin(docId: string): Promise<string>; upload(docId: string, uploadId: string, blob: Blob, signal?: AbortSignal): Promise<void>; commit(docId: string, uploadId: string): Promise<string>; resolve(docId: string, attachmentId: string): Promise<{available:boolean;url?:string}> };
