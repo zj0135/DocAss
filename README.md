@@ -1,6 +1,6 @@
 # DocAss
 
-WPF/WebView2 桌面文档助手。A1–A34 已完成实现和本机自动化验收：可打开 PDF/PNG/JPEG/BMP，支持密码、最近打开、多标签、连续阅读、缩略图、大纲、缩放和旋转。桌面版支持原生文字与本机 OCR 的选择、跨页复制、搜索和高亮；七类标注、撤销重做、保存失败恢复与关闭协调、文件新版本及标注迁移已接入。A35–A40 的 OCR 实现和自动化结果见[第四阶段记录](docs/validation/phase4.md)，G5 倾斜／竖排人工几何验收尚缺证据，任务暂不勾选；真实模型调用按后续阶段推进。
+WPF/WebView2 桌面文档助手。A1–A40 已完成实现和本机自动化验收：可打开 PDF/PNG/JPEG/BMP，支持密码、最近打开、多标签、连续阅读、缩略图、大纲、缩放和旋转。桌面版支持原生文字与本机 OCR 的选择、跨页复制、搜索和高亮；七类标注、撤销重做、保存失败恢复与关闭协调、文件新版本及标注迁移已接入。OCR 本阶段按用户指示采用[独立合成 PDF 验收](docs/validation/phase4-synthetic.md)，总体字框中心命中率 96.50%；英文细笔画局限和真实扫描验收边界已记录。真实模型调用按后续阶段推进。
 
 需要 Windows x64、.NET SDK **11.0.100**、Node **24.22.1**、pnpm **12.15.0**。运行桌面程序需要 Microsoft Edge WebView2 Evergreen Runtime。根目录是唯一 pnpm 安装入口。
 
@@ -18,6 +18,7 @@ pnpm test:fixtures      # 重复生成对比 SHA-256；PDF.js 验证密码与样
 pnpm test               # 先 xUnit 导出原生几何，再 Vitest；artifacts/ 下的 JSON/TRX
 pnpm test:browser       # 已安装 Edge，Playwright 启动 Vite；artifacts/browser-tests.json
 pnpm verify:desktop     # 真实 WPF/WebView2 验收；会短暂操作本应用窗口，结束恢复鼠标位置
+pnpm verify:ocr:synthetic # 三页合成扫描 PDF：314 字几何、倾斜／竖排复制高亮、搜索与重开
 pnpm verify:install     # 空目录安装和锁定 NuGet restore
 pnpm run publish        # artifacts/publish/win-x64，自包含应用；manifest.json 校验清单
 ```

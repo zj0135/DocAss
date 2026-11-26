@@ -45,7 +45,7 @@ public sealed partial class MainWindow
                 document.querySelector('button[title="关闭 (Esc)"]')?.click();await pause(100);window.__ocrWarm=[];
                 for(let i=0;i<30;i++){const start=performance.now();button('重新识别本页').click();await until(()=>button('取消识别等待'));await until(()=>!button('取消识别等待'));check(!document.querySelector('[aria-label="文字识别控制"] [role="alert"]'),'benchmark page succeeded');window.__ocrWarm.push(performance.now()-start);}
                 """,120000);
-            var times=JsonDocument.Parse(await web.CoreWebView2.ExecuteScriptAsync("window.__ocrWarm")).RootElement.EnumerateArray().Select(v=>v.GetDouble()).ToArray();var p95=times.Order().ElementAt(28);acceptanceResults["warmFullPathMs"]=times;acceptanceResults["p95Ms"]=p95;acceptanceResults["g5LatencyPassed"]=p95<=1500;
+            var times=JsonDocument.Parse(await web.CoreWebView2.ExecuteScriptAsync("window.__ocrWarm")).RootElement.EnumerateArray().Select(v=>v.GetDouble()).ToArray();var p95=times.Order().ElementAt(28);acceptanceResults["warmFullPathMs"]=times;acceptanceResults["p95Ms"]=p95;Check("g5LatencyPassed",p95<=1500);
         }
         else
         {

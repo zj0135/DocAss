@@ -11,4 +11,8 @@ for(const [file,count] of [['ocr-reading.pdf',3],['ocr-geometry.pdf',4]]){
  await writeFile(path.join(out,file),await doc.save({useObjectStreams:false}));
 }
 for(const name of ['english','chinese'])await writeFile(path.join(out,'ocr-'+name+'.png'),await readFile(path.join(samples,'ocr-'+name+'.png')));
+const truth=JSON.parse(await readFile(path.join(samples,'ocr-synthetic-truth.json'),'utf8'));
+const acceptance=await PDFDocument.create();acceptance.setCreationDate(new Date('2026-11-26T00:00:00Z'));acceptance.setModificationDate(new Date('2026-11-26T00:00:00Z'));
+for(const item of truth.pages){const bytes=await readFile(path.join(samples,item.image)),image=await acceptance.embedPng(bytes);acceptance.addPage([truth.width*72/truth.dpi,truth.height*72/truth.dpi]).drawImage(image,{x:0,y:0,width:truth.width*72/truth.dpi,height:truth.height*72/truth.dpi});await writeFile(path.join(out,item.image),bytes);}
+await writeFile(path.join(out,'ocr-acceptance.pdf'),await acceptance.save({useObjectStreams:false}));await writeFile(path.join(out,'ocr-synthetic-truth.json'),JSON.stringify(truth,null,2)+'\n');
 console.log('Generated OCR reading, geometry and language fixtures. Raster truth originates in Verification/OcrSamples.cs, never in OCR output.');

@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import {readFileSync,writeFileSync} from 'node:fs';
 import {it,expect,vi} from 'vitest';
 import type {NativePage,PageInfo,Glyph,OcrResult,OcrTicket,OcrStatus} from '../src/contracts';
 import {planRaster} from '../src/ocr/raster';
@@ -8,6 +9,7 @@ import {point} from '../src/documents/geometry';
 import {BrowserServices} from '../src/services/BrowserServices';
 import {DocumentText} from '../src/ocr/DocumentText';
 import {searchPage} from '../src/text/search';
+import {HitIndex} from '../src/text/selection';
 import type {DocumentPool} from '../src/documents/DocumentPool';
 const hash='a'.repeat(64),info:PageInfo={page:1,pageBox:[20,30,620,830],width:600,height:800,rotate:0,userUnit:1};
 const glyph=(text:string,x=50,y=700):Glyph=>({id:crypto.randomUUID(),text,quad:[x,y,x+10,y,x+10,y+15,x,y+15],baseline:[x,y,x+10,y],source:'native'});
@@ -59,4 +61,18 @@ it('hybrid deduplicates the real shifted CTC header span while preserving same-l
  const four=box('4',[23.0544,815.76,27.1152,815.76,27.1152,832.32,23.0544,832.32],[23.0544,815.76,27.1152,815.76]),two=box('2',[27.1152,815.76,31.176,815.76,31.176,832.32,27.1152,832.32],[27.1152,815.76,31.176,815.76]);
  expect(duplicate(four,native.glyphs[0])).toBe(false);const merged=await composeText(native,result([four,two,glyph(' body',50,820),glyph(' 42',200,820)]),'hybrid');
  expect(merged.text.match(/42/g)).toHaveLength(2);expect(merged.text).toContain('body');expect(merged.glyphs.some(g=>g.id===four.id||g.id===two.id)).toBe(false);expect(merged.glyphs.some(g=>g.text===' 42')).toBe(true);
+});
+it('upright vertical OCR columns read right to left despite small top-edge differences',async()=>{
+ const cell=(text:string,x:number,y:number):Glyph=>({...glyph(text,x,y),baseline:[x+10,y,x+10,y+15],source:'ocr'});
+ const left=[cell('左',50,701),cell('侧',50,680)],right=[cell('右',90,700),cell('侧',90,679)];
+ const page=await composeText(await buildPageText(raw()),{...result([]),lines:[{text:'左侧',glyphs:left},{text:'右侧',glyphs:right}]},'ocr');expect(page.text).toBe('右侧\n左侧');
+ const hits=new HitIndex(page);expect(hits.hit([95,713])).toBe(0);expect(hits.hit([95,680])).toBe(2);
+});
+it('real synthetic OCR outputs preserve the independently authored text and reading order',async()=>{
+ const root=new URL('../../../artifacts/ocr-samples/',import.meta.url);const truth=JSON.parse(readFileSync(new URL('ocr-synthetic-truth.json',root),'utf8')) as {pages:{category:string;characters:{text:string}[]}[]};const report=[];
+ for(const sample of truth.pages){const recognized=JSON.parse(readFileSync(new URL(sample.category+'-result.json',root),'utf8')) as OcrResult;
+  const native=await buildPageText({...raw(),pageInfo:recognized.raster.pageInfo});const page=await composeText(native,recognized,'ocr');const expected=sample.characters.map(c=>c.text).join(''),actual=page.text.replace(/\s/gu,'');
+  report.push({category:sample.category,characters:expected.length,exactMatch:expected===actual,text:actual});
+ }
+ writeFileSync(new URL('synthetic-text.json',root),JSON.stringify(report,null,2));for(const result of report)expect(result.exactMatch,result.category).toBe(true);
 });

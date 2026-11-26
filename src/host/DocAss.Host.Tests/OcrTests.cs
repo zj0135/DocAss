@@ -83,4 +83,16 @@ public sealed class OcrTests
         var cached=await scheduler.StartAsync(request);Assert.True(scheduler.Result(handle.DocId,cached.JobId,cached.SubscriptionId).Cached);Assert.Equal(1,scheduler.InferenceCount);
         await Configure("Tiny");var changed=await scheduler.StartAsync(request);Assert.NotEqual(first.Profile.Fingerprint,changed.Profile.Fingerprint);Assert.True(changed.PageGeneration>first.PageGeneration);Assert.Throws<AppException>(()=>scheduler.Result(handle.DocId,cached.JobId,cached.SubscriptionId));await Until(scheduler,changed,"completed");Assert.False(scheduler.Result(handle.DocId,changed.JobId,changed.SubscriptionId).Cached);Assert.Equal(2,scheduler.InferenceCount);
     }
+    [Fact] public void SyntheticTiltedAndVerticalGeometryUsesIndependentOutlineTruth()
+    {
+        _=Generated.Value;var truth=JsonSerializer.Deserialize<OcrTruthCorpus>(File.ReadAllText(Path.Combine(Samples,"ocr-synthetic-truth.json")),Json.Options)!;using var engine=new OcrEngine();var scores=new List<OcrGeometryScore>();
+        foreach(var page in truth.Pages)
+        {
+            var raster=Raster() with{PageInfo=Raster().PageInfo with{Page=page.Page}};var pixels=OcrRasterizer.Decode(File.ReadAllBytes(Path.Combine(Samples,page.Image)),raster);var recognized=engine.Run(pixels,Profile(),raster.RasterToPage);
+            var result=new OcrResult{DocId=Guid.NewGuid().ToString(),JobId=Guid.NewGuid().ToString(),ContentRevision=new string('b',64),PageGeneration=1,Profile=Profile(),Raster=raster,Lines=recognized.Lines,Empty=false,Device=recognized.Device,Fallback=recognized.Fallback,Cached=false,ElapsedMs=0};
+            scores.Add(OcrGeometryAcceptance.Score(truth,page,result));File.WriteAllText(Path.Combine(Samples,page.Category+"-result.json"),Json.String(result));OcrGeometryAcceptance.Overlay(Samples,Path.Combine(Samples,page.Category+"-overlay.svg"),truth,page,result);
+            var shifted=result with{Lines=result.Lines.Select(l=>l with{Glyphs=l.Glyphs.Select(g=>g with{Quad=g.Quad.Select((v,i)=>i%2==0?v+300:v).ToArray()}).ToArray()}).ToArray()};Assert.False(OcrGeometryAcceptance.Score(truth,page,shifted).Meets95Percent);
+        }
+        File.WriteAllText(Path.Combine(Samples,"synthetic-geometry.json"),Json.String(scores));Assert.True(scores.Sum(s=>s.Expected)>=100);Assert.True((double)scores.Sum(s=>s.Hits)/scores.Sum(s=>s.Expected)>=.95,Json.String(scores));
+    }
 }

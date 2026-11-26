@@ -119,6 +119,7 @@ public sealed partial class MainWindow : Window
     }
     private async void OnResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
     {
+        if(mayClose)return;
         if (development && !new Uri(e.Request.Uri).AbsolutePath.StartsWith("/_host/")) return;
         var deferral = e.GetDeferral(); Interlocked.Increment(ref resourceStarted);
         try
@@ -126,11 +127,12 @@ public sealed partial class MainWindow : Window
             var headers = e.Request.Headers;
             var request = new ResourceRequest(e.Request.Method, e.Request.Uri, headers.Contains("Range") ? headers.GetHeader("Range") : null, headers.Contains("Content-Type") ? headers.GetHeader("Content-Type") : null, e.Request.Content);
             var result = await Task.Run(() => resources.HandleAsync(request, lifetime.Token));
+            if(mayClose){result.BodyStream?.Dispose();return;}
             var responseHeaders = $"Content-Type: {result.Mime}\r\n" + string.Join("\r\n", (result.Headers ?? new()).Select(h => h.Key + ": " + h.Value));
             e.Response = web.CoreWebView2.Environment.CreateWebResourceResponse(result.BodyStream ?? new MemoryStream(result.Body), result.Status, "DocAss", responseHeaders);
         }
-        catch { if (web.CoreWebView2 != null) e.Response = web.CoreWebView2.Environment.CreateWebResourceResponse(new MemoryStream(), 500, "Resource failed", "Content-Type: text/plain"); }
-        finally { deferral.Dispose(); Interlocked.Increment(ref resourceCompleted); }
+        catch { if (!mayClose && web.CoreWebView2 != null) e.Response = web.CoreWebView2.Environment.CreateWebResourceResponse(new MemoryStream(), 500, "Resource failed", "Content-Type: text/plain"); }
+        finally { try{deferral.Dispose();}finally{if(Interlocked.Increment(ref resourceCompleted)==Volatile.Read(ref resourceStarted))resourcesDrained?.TrySetResult();} }
         // CoreWebView2Deferral.Dispose completes the deferral once, including on exceptions.
     }
     private async Task<ResourceResponse> BusinessResourceAsync(ResourceRequest request, CancellationToken token)
@@ -222,10 +224,14 @@ public sealed partial class MainWindow : Window
         if (!initialized || await close.RequestAsync()) { if(acceptance?.Scenario is "closeButton" or "altF4")await RecordClosingAcceptanceAsync(); mayClose = true; await CleanupAsync(); Close(); }
         else { MessageBox.Show("保存或备份失败，窗口保持打开。请检查磁盘与权限后重试。", "未关闭"); close.CancelClose(); closing = false;Emit("window.closeCancelled",new{}); }
     }
+    private TaskCompletionSource? resourcesDrained;
     private async Task CleanupAsync()
     {
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
-        lifetime.Cancel(); acceptanceWriter?.Dispose(); bridge.Dispose(); await loopback.DisposeAsync(); await ocr.DisposeAsync();files.Dispose(); await storage.DisposeAsync(); documents.Dispose(); databaseLease?.Dispose(); web.Dispose(); lifetime.Dispose();
+        lifetime.Cancel();
+        // Resource continuations and deferrals must finish before disposing their document streams and WebView.
+        if(Volatile.Read(ref resourceCompleted)!=Volatile.Read(ref resourceStarted)){resourcesDrained=new(TaskCreationOptions.RunContinuationsAsynchronously);await resourcesDrained.Task;}
+        acceptanceWriter?.Dispose(); bridge.Dispose(); await loopback.DisposeAsync(); await ocr.DisposeAsync();files.Dispose(); await storage.DisposeAsync(); documents.Dispose(); databaseLease?.Dispose(); web.Dispose(); lifetime.Dispose();
     }
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
     {
