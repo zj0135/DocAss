@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
@@ -255,9 +256,43 @@ public sealed partial class MainWindow : Window
             if (WindowState == WindowState.Normal) { Left = bounds.Left; Top = bounds.Top; Width = bounds.Width; Height = bounds.Height; }
         });
     }
+    private const int WM_GETMINMAXINFO = 0x0024;
+    private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+    [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
+    [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] private struct MinMaxInfo { public NativePoint Reserved, MaxSize, MaxPosition, MinTrackSize, MaxTrackSize; }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)] private struct MonitorInfo { public int Size; public NativeRect Monitor, Work; public uint Flags; }
+    [DllImport("user32.dll")] private static extern nint MonitorFromWindow(nint hwnd, uint flags);
+    [DllImport("user32.dll", CharSet = CharSet.Auto)] private static extern bool GetMonitorInfo(nint monitor, ref MonitorInfo info);
+
     private nint DisplayMessage(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
     {
         if (acceptance!=null && message is 0xa1 or 0xa2 or 0xa3 or 0x112) windowMessages.Add($"{message:X}:{wParam:X}");
+        if (message == WM_GETMINMAXINFO)
+        {
+            var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+            var monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+            if (monitor != 0)
+            {
+                var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+                if (GetMonitorInfo(monitor, ref info))
+                {
+                    var work = info.Work;
+                    var mon = info.Monitor;
+                    mmi.MaxPosition.X = work.Left - mon.Left;
+                    mmi.MaxPosition.Y = work.Top - mon.Top;
+                    mmi.MaxSize.X = work.Right - work.Left;
+                    mmi.MaxSize.Y = work.Bottom - work.Top;
+                    if (work.Left == mon.Left && work.Top == mon.Top && work.Right == mon.Right && work.Bottom == mon.Bottom)
+                        mmi.MaxSize.Y -= 1;
+                    var dpi = VisualTreeHelper.GetDpi(this);
+                    if (MinWidth > 0) mmi.MinTrackSize.X = (int)Math.Ceiling(MinWidth * dpi.DpiScaleX);
+                    if (MinHeight > 0) mmi.MinTrackSize.Y = (int)Math.Ceiling(MinHeight * dpi.DpiScaleY);
+                    Marshal.StructureToPtr(mmi, lParam, true);
+                    handled = true;
+                }
+            }
+        }
         if (message is 0x007e or 0x02e0) OnDisplaySettingsChanged(this, EventArgs.Empty);
         return 0;
     }

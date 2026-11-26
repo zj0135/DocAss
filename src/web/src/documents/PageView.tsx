@@ -39,7 +39,7 @@ export function PageView({document,info,scale,rotation,dpr,priority,selection=[]
     paintAnnotations(ctx,annotations,view.transform,selectedId);
     return ()=>pageCanvases.release(canvas);
   },[info,scale,rotation,dpr,overlayKey,revision,thumbnail]);
-  return <div data-page={info.page} style={{width:view.width,height:view.height,position:'relative',background:'white',boxShadow:'0 2px 8px #0002'}}>
+  return <div data-page={info.page} className="rounded-[2px] shadow-[0_12px_36px_-10px_rgba(15,23,42,0.14),0_2px_8px_-2px_rgba(15,23,42,0.06)]" style={{width:view.width,height:view.height,position:'relative',background:'white'}}>
     <div ref={host} style={{width:'100%',height:'100%',pointerEvents:'none'}}/>
     {!thumbnail&&<canvas ref={overlay} data-overlay={info.page} data-current-count={current.length} style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}/>}
     {error&&<div role="alert" className="absolute inset-0 flex items-center justify-center text-red-700 text-sm" onPointerDown={e=>e.stopPropagation()}>{error}{onRecover&&<button className="ml-3 underline" onClick={onRecover}>重建阅读器</button>}</div>}

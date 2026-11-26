@@ -48,6 +48,7 @@ export const OutlinePanel: React.FC<OutlinePanelProps> = ({
           <div className="flex items-center space-x-1.5 truncate">
             {hasChildren ? (
               <button
+                type="button"
                 onClick={(e) => toggleExpand(item.id, e)}
                 className="p-0.5 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600"
               >
@@ -80,12 +81,17 @@ export const OutlinePanel: React.FC<OutlinePanelProps> = ({
   };
 
   return (
-    <aside className="w-[280px] bg-white border-r border-[#e3e6ea] flex flex-col flex-shrink-0 z-10 animate-in slide-in-from-left-2 duration-150">
+    <aside
+      aria-label="目录大纲"
+      className="w-[280px] bg-white border-r border-[#e3e6ea] flex flex-col flex-shrink-0 z-10"
+    >
       {/* Header */}
       <div className="h-[44px] px-3.5 border-b border-[#e3e6ea] flex items-center justify-between flex-shrink-0">
         <span className="text-[13px] font-semibold text-[#1f2329]">目录大纲</span>
         <button
+          type="button"
           onClick={onClose}
+          aria-label="关闭目录大纲"
           className="p-1 rounded-md text-[#5f6672] hover:bg-slate-100 transition-colors"
         >
           <X className="w-4 h-4" />
@@ -94,7 +100,13 @@ export const OutlinePanel: React.FC<OutlinePanelProps> = ({
 
       {/* Tree Content */}
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-        {outline.map((item) => renderItem(item))}
+        {outline.length === 0 ? (
+          <div className="text-center py-8 text-[13px] text-[#8a9099]">
+            此文档没有大纲
+          </div>
+        ) : (
+          outline.map((item) => renderItem(item))
+        )}
       </div>
     </aside>
   );

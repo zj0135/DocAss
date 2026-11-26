@@ -1,8 +1,86 @@
 @import "tailwindcss" source("./");
 @import "./styles/tokens.css";
-html, body, #root { margin: 0; width: 100%; height: 100%; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+
+html, body, #root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  font-family: "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
 /* WebView2 non-client regions use native drag and double-click behavior. */
 .native-titlebar { -webkit-app-region: drag; app-region: drag; }
 .native-titlebar button, .native-titlebar [data-no-drag] { -webkit-app-region: no-drag; app-region: no-drag; }
 .native-titlebar button:disabled { opacity: .35; cursor: default; }
-.settings-input { display: block; width: 100%; margin-top: .35rem; border: 1px solid #e2e8f0; border-radius: .5rem; padding: .5rem .75rem; background: white; outline-color: #3b82f6; }
+
+.settings-input {
+  display: block;
+  width: 100%;
+  margin-top: .35rem;
+  border: 1px solid #e2e8f0;
+  border-radius: .625rem;
+  padding: .5rem .75rem;
+  background: white;
+  outline-color: #2563eb;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.settings-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Subtle architectural dot grid for document canvas */
+.canvas-backdrop {
+  background-color: #e6e8ec;
+  background-image: radial-gradient(rgba(100, 116, 139, 0.16) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes surfaceIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-surface-in {
+  animation: surfaceIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-float-in {
+  animation: floatIn 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-panel-in {
+  animation: panelIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
