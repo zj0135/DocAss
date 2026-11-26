@@ -6,7 +6,7 @@ import type { OpenResult, NativePage } from '../documents/types';
 import { buildPageText } from '../text/model';
 
 export class DesktopServices implements AppServices {
-  readonly capabilities: Capabilities = { desktop: true, window: true, persistentStorage: true, credentials: true, nativeText: true, ocr: true, llm: false };
+  readonly capabilities: Capabilities = { desktop: true, window: true, persistentStorage: true, credentials: true, nativeText: true, ocr: true, llm: true };
   private transport: Webview2Transport;
   private local?: Bootstrap['loopback'];
   constructor(transport: Webview2Transport) { this.transport = transport; }
@@ -44,12 +44,32 @@ export class DesktopServices implements AppServices {
     validate('Id',docId);const response=await fetch(`/_host/doc/${docId}/clipboard`,{method:'POST',headers:{'Content-Type':'text/plain'},body:text});if(!response.ok)throw new ServiceError('CLIPBOARD_FAILED','无法写入剪贴板，请重试');
   }};
   persistence: AppServices['persistence'] = {
-    commit: async command => validate<CommitResult>('CommitResult', await this.transport.request('store.commit', validate('CommitCommand', command))),
+    commit: async command => {validate('CommitCommand',command);const response=await fetch(`/_host/doc/${command.docId}/commands`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(command)});const value=await response.json();if(!response.ok)throw new ServiceError(value.code??value.error?.code??'STORAGE_FAILED',value.message??value.error?.message??'保存失败',true);return validate<CommitResult>('CommitResult',value);},
     getOperation: (docId, operationId) => this.transport.request('store.getOperation', {docId,operationId}),
-    read: docId => this.transport.request<DocumentState>('store.snapshot',{docId}),
+    read: async docId => {validate('Id',docId);const response=await fetch(`/_host/doc/${docId}/snapshot`);if(!response.ok)throw new ServiceError('STORAGE_FAILED','无法读取文档记录');return await response.json() as DocumentState;},
+    messages:async(docId,conversationId,before)=>{validate('Id',docId);validate('Id',conversationId);const response=await fetch(`/_host/doc/${docId}/conversation/${conversationId}/messages/${before}`);if(!response.ok)throw new ServiceError('STORAGE_FAILED','无法读取会话记录');return response.json();},
   };
   settings: AppServices['settings'] = { get: () => this.transport.request<Settings>('settings.get'), update: settings => this.transport.request<Settings>('settings.update', validate('Settings', settings)) };
-  providers: AppServices['providers'] = { list: () => this.transport.request('providers.list'), save: (provider, replacementKey, deleteKey = false) => this.transport.request('providers.save', {provider:validate('Provider',provider),replacementKey:replacementKey ?? null,deleteKey}), delete: id => this.transport.request('providers.delete',{id}) };
+  providers: AppServices['providers'] = { list: () => this.transport.request('providers.list'), save: (provider, replacementKey, deleteKey = false) => this.transport.request('providers.save', {provider:validate('Provider',provider),replacementKey:replacementKey ?? null,deleteKey}), delete: id => this.transport.request('providers.delete',{id}),testDraft:(provider,replacementKey,signal)=>this.transport.request('providers.testDraft',{provider:validate('Provider',provider),replacementKey:replacementKey??null},signal,17000) };
+  llm:AppServices['llm']={
+    begin:(docId,providerId,modelId,runId)=>this.transport.request('llm.begin',{docId,providerId,modelId,runId}),
+    end:runId=>this.transport.request('llm.end',{runId}),
+    channel:(runId,signal)=>{
+      if(!this.local)throw new ServiceError('UNCONFIGURED','本机模型通道不可用');validate('Id',runId);
+      const local=this.local,baseUrl=local.origin+'/llm/'+runId;
+      return {baseUrl,fetch:async(input,init)=>{
+        const original=new Request(input,init),url=new URL(original.url);
+        if(url.origin!==local.origin||!url.pathname.startsWith('/llm/'+runId+'/'))throw new ServiceError('FORBIDDEN','模型请求必须通过本机通道');
+        signal.throwIfAborted();const requestId=crypto.randomUUID(),cancel=()=>{void this.transport.request('stream.cancel',{requestId}).catch(()=>{});};signal.addEventListener('abort',cancel,{once:true});
+        // No SDK auth, cookies or arbitrary headers leave the browser boundary.
+        const headers=new Headers({'Content-Type':'application/json','X-DocAss-Session':local.token,'X-Request-Id':requestId});
+        try{const response=await fetch(url,{method:'POST',headers,body:await original.arrayBuffer(),signal,credentials:'omit',redirect:'error'});if(!response.ok){const error=await response.json();throw new ServiceError(error.code??'NETWORK',error.message??'模型请求失败');}
+          if(!response.body){signal.removeEventListener('abort',cancel);return response;}const reader=response.body.getReader();
+          return new Response(new ReadableStream({async pull(controller){try{const value=await reader.read();if(value.done){signal.removeEventListener('abort',cancel);controller.close();}else controller.enqueue(value.value);}catch(e){signal.removeEventListener('abort',cancel);controller.error(e);}},async cancel(){signal.removeEventListener('abort',cancel);cancel();await reader.cancel();}}),{status:response.status,headers:response.headers});
+        }catch(e){signal.removeEventListener('abort',cancel);throw e;}
+      }};
+    }
+  };
   attachments: AppServices['attachments'] = {
     begin: async docId => (await this.transport.request<{uploadId:string}>('attachment.begin',{docId})).uploadId,
     upload: async (docId, id, blob, signal) => { validate('Id', docId); validate('Id', id); const response = await fetch(`/_host/doc/${docId}/attachments/${id}`,{method:'PUT',headers:{'Content-Type':'image/png'},body:blob,signal}); if (!response.ok) throw new ServiceError('STORAGE_FAILED','附件上传失败'); },

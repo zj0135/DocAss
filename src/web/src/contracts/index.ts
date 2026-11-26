@@ -57,6 +57,8 @@ function semantic(name: string, v: any) {
   if (name === 'Provider') {
     let url: URL; try { url = new URL(v.baseUrl); } catch { throw new ServiceError('INVALID_PAYLOAD', '提供方地址无效'); }
     requireValue(!url.username && !url.password && !url.search && !url.hash && (url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost','127.0.0.1'].includes(url.hostname))));
+    requireValue(new Set(v.models.map((m:any)=>m.modelId)).size===v.models.length);
+    requireValue(!/(?:^|\/)\.\.?(?:\/|$)|%|\\/.test(v.baseUrl.slice(v.baseUrl.indexOf('://')+3)));
   }
 }
 export function canonical(value: unknown): string {

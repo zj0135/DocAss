@@ -564,6 +564,9 @@
             "messageId": {
               "type": "string",
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "runId": {
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
@@ -617,6 +620,26 @@
             "attachmentId": {
               "type": "string",
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "rect": {
+              "$ref": "#/$defs/Box"
+            },
+            "docHash": {
+              "$ref": "#/$defs/Hash"
+            },
+            "scale": {
+              "type": "number",
+              "minimum": 0.000001,
+              "maximum": 100
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 20000
+            },
+            "page": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
             }
           },
           "required": [
@@ -665,6 +688,21 @@
             "textRevision": {
               "type": "string",
               "pattern": "^[0-9a-f]{64}$"
+            },
+            "ranges": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TextRange"
+              },
+              "maxItems": 100,
+              "minItems": 0
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "anchorToken": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           "required": [
@@ -692,6 +730,10 @@
             "argumentsJson": {
               "type": "string",
               "maxLength": 20000
+            },
+            "wireId": {
+              "type": "string",
+              "maxLength": 256
             }
           },
           "required": [
@@ -714,7 +756,19 @@
             },
             "resultJson": {
               "type": "string",
-              "maxLength": 20000
+              "maxLength": 120000
+            },
+            "wireId": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "annotationIds": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Id"
+              },
+              "minItems": 0,
+              "maxItems": 100
             }
           },
           "required": [
@@ -808,6 +862,9 @@
             "outputTokens"
           ],
           "additionalProperties": false
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -841,6 +898,19 @@
         "createdAt": {
           "type": "string",
           "maxLength": 40
+        },
+        "headId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "renamed": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -856,7 +926,8 @@
       "properties": {
         "modelId": {
           "type": "string",
-          "maxLength": 256
+          "maxLength": 256,
+          "minLength": 1
         },
         "input": {
           "type": "array",
@@ -878,6 +949,28 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 2147483647
+        },
+        "compat": {
+          "type": "object",
+          "properties": {
+            "supportsStore": {
+              "type": "boolean"
+            },
+            "supportsDeveloperRole": {
+              "type": "boolean"
+            },
+            "supportsStreamingUsage": {
+              "type": "boolean"
+            },
+            "maxTokensField": {
+              "enum": [
+                "max_tokens",
+                "max_completion_tokens"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -897,7 +990,8 @@
         },
         "name": {
           "type": "string",
-          "maxLength": 128
+          "maxLength": 128,
+          "minLength": 1
         },
         "api": {
           "enum": [
@@ -2010,6 +2104,172 @@
         "fallback",
         "cached",
         "elapsedMs"
+      ],
+      "additionalProperties": false
+    },
+    "ToolGetInfo": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "ToolPageText": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "to": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "maxChars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20000
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    "ToolSearch": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "maxHits": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "ToolPageImage": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "maxEdge": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 2048
+        }
+      },
+      "required": [
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "ToolRegionImage": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "rect": {
+          "$ref": "#/$defs/Box"
+        },
+        "maxEdge": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 2048
+        }
+      },
+      "required": [
+        "page",
+        "rect"
+      ],
+      "additionalProperties": false
+    },
+    "ToolAnnotations": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "type": {
+          "enum": [
+            "highlight",
+            "underline",
+            "note",
+            "freetext",
+            "ink",
+            "rect",
+            "arrow"
+          ]
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ToolCreateAnnotation": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "type": {
+          "enum": [
+            "highlight",
+            "note"
+          ]
+        },
+        "comment": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "anchorToken": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "page",
+        "quote",
+        "type"
       ],
       "additionalProperties": false
     }

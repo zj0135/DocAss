@@ -38,7 +38,7 @@ export function PageView({document,info,scale,rotation,dpr,priority,selection=[]
   },[info,scale,rotation,dpr,selection,matches,current,revision,thumbnail,annotations,selectedId]);
   return <div data-page={info.page} style={{width:view.width,height:view.height,position:'relative',background:'white',boxShadow:'0 2px 8px #0002'}}>
     <div ref={host} style={{width:'100%',height:'100%',pointerEvents:'none'}}/>
-    {!thumbnail&&<canvas ref={overlay} data-overlay={info.page} style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}/>}
+    {!thumbnail&&<canvas ref={overlay} data-overlay={info.page} data-current-count={current.length} style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}/>}
     {error&&<div role="alert" className="absolute inset-0 flex items-center justify-center text-red-700 text-sm" onPointerDown={e=>e.stopPropagation()}>{error}{onRecover&&<button className="ml-3 underline" onClick={onRecover}>重建阅读器</button>}</div>}
   </div>;
 }

@@ -12,6 +12,7 @@ import { buildStamp } from './buildStamp';
 import { DocumentPool } from './documents/DocumentPool';
 import { DocumentReader } from './documents/DocumentReader';
 import {DocumentText} from './ocr/DocumentText';
+import {ChatSession} from './llm/ChatSession';
 import type { OpenResult,RecentDocument } from './documents/types';
 
 const Prototype = lazy(()=>import('./mock/PrototypeApp'));
@@ -46,6 +47,7 @@ function Workspace() {
         const lease=await pool.acquire(handle.docId,prompt,signal),count=lease.document.pageCount;lease.release();signal.throwIfAborted();
         await services.documents.loaded(handle.docId,count);const session=new DocSession(handle,services);session.migrationFrom=result.previousHash;await session.restore();signal.throwIfAborted();if(windowClosing.current)throw new DOMException('已取消','AbortError');session.store.setState({pageCount:count});sessions.set(handle.docId,session);
         if(services.capabilities.ocr)session.text=new DocumentText(handle,services,pool,prompt);
+        session.chat=new ChatSession({session,services,pool,prompt});await session.chat.load();
         appStore.setState(s=>({tabs:[...s.tabs,handle],activeDocId:handle.docId,error:undefined}));setRecent(await services.documents.recent());
       }catch(e){await pool.close(handle.docId);await services.documents.close(handle.docId);throw e;}
     }catch(e){if(result.status!=='ready')await services.documents.cancelOpen(result.openId);throw e;}
@@ -68,9 +70,9 @@ function Workspace() {
     }catch(e){report(e);}
   };
   const finishClose=async(ids:string[],requestId?:string)=>{
-    if(requestId){windowClosing.current=true;openAbort.current?.abort();passwordRequest?.reject(new DOMException('已取消','AbortError'));setPassword('');setPasswordRequest(undefined);for(const s of sessions.values()){s.store.setState({closeState:'closing'});s.stop();}}
+    if(requestId){windowClosing.current=true;openAbort.current?.abort();passwordRequest?.reject(new DOMException('已取消','AbortError'));setPassword('');setPasswordRequest(undefined);for(const s of sessions.values()){s.stop();}}
     if(closeBusy.current){if(requestId)queuedWindowClose.current=requestId;return;}closeBusy.current=true;setClosingText('正在保存并关闭…');
-    for(const id of ids)sessions.get(id)?.store.setState({closeState:'closing'});
+    for(const id of ids)sessions.get(id)?.stop();
     try{for(const id of ids)await sessions.get(id)?.prepareClose();
       if(requestId)await services.window.closeReady(requestId,true);
       else for(const id of ids){await sessions.get(id)?.close();await pool.close(id);sessions.delete(id);appStore.setState(s=>({tabs:s.tabs.filter(t=>t.docId!==id),activeDocId:s.activeDocId===id?s.tabs.find(t=>t.docId!==id)?.docId??'':s.activeDocId}));}

@@ -54,6 +54,13 @@ it('a status response arriving after cancel cannot restore a running indicator',
  const pending=controller.recognize(1).catch(e=>e);for(let i=0;!deliver&&i<100;i++)await new Promise(r=>setTimeout(r,5));expect(deliver).toBeDefined();controller.cancelPage(1);deliver!();await pending;
  expect(controller.store.getState().pages[1].phase).toBe('cancelled');expect(services.ocr.unsubscribe).toHaveBeenCalledTimes(1);controller.dispose();services.dispose();
 });
+it('cancelling an agent OCR subscription preserves the reader subscription and rejects its late result',async()=>{
+ const {services,handle,controller}=await fixture(),deliveries:{ticket:OcrTicket;resolve:(r:OcrResult)=>void}[]=[];
+ services.ocr.result=vi.fn(t=>new Promise(resolve=>deliveries.push({ticket:t,resolve})));
+ const reader=controller.recognize(1);await vi.waitFor(()=>expect(deliveries).toHaveLength(1));const abort=new AbortController(),agent=controller.recognizeForRun(1,abort.signal),rejected=expect(agent).rejects.toThrow();await vi.waitFor(()=>expect(deliveries).toHaveLength(2));abort.abort();
+ const cancelled=vi.mocked(services.ocr.unsubscribe).mock.calls.map(([t])=>t.subscriptionId);expect(cancelled).toContain(deliveries[1].ticket.subscriptionId);expect(cancelled).not.toContain(deliveries[0].ticket.subscriptionId);
+ const deliver=(index:number,value:string)=>{const t=deliveries[index].ticket;deliveries[index].resolve({...result([glyph(value)]),docId:handle.docId,jobId:t.jobId,contentRevision:handle.docHash,pageGeneration:t.pageGeneration});};deliver(1,'late agent');await rejected;deliver(0,'reader result');await reader;expect((await controller.getPage(1,new AbortController().signal)).text).toBe('reader result');controller.dispose();services.dispose();
+});
 it('hybrid deduplicates the real shifted CTC header span while preserving same-line scan text and distant numbers',async()=>{
  // Observed PdfPig ink and OCR estimate boxes for the generated mixed PDF, not quality ground truth.
  const box=(text:string,q:Glyph['quad'],baseline:Glyph['baseline']):Glyph=>({...glyph(text),quad:q,baseline});

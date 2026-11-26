@@ -1,11 +1,13 @@
 import {spawn} from 'node:child_process';
 import {mkdir,readFile,writeFile,access} from 'node:fs/promises';
 import path from 'node:path';
+import {events as llmEvents} from '../docs/fixtures/llm-protocols.mjs';
 import {setTimeout as delay} from 'node:timers/promises';
 
 const root=path.resolve(import.meta.dirname,'..');
 const output=path.join(root,'artifacts','desktop',new Date().toISOString().replaceAll(/[:.]/g,'-'));
 await mkdir(output,{recursive:true});
+await writeFile(path.join(root,'artifacts','llm-protocols.json'),JSON.stringify(Object.fromEntries(['openai-completions','openai-responses','anthropic-messages','google-generative-ai'].map(api=>[api,{text:llmEvents(api,'中文流式验收完成').join(''),tool:llmEvents(api,'',true).join('')}]))));
 const command=async(exe,args)=>{const child=spawn(exe,args,{cwd:root,windowsHide:true,stdio:'inherit'});const code=await new Promise(r=>child.once('exit',r));if(code!==0)throw Error(`${exe} exited ${code}`);};
 if(!process.argv.includes('--skip-build')) {
   await command('cmd.exe',['/d','/s','/c','pnpm build']);
@@ -34,7 +36,7 @@ async function host(scenario,{dev=false,env={},onReady}={}) {
 let vite;const stamp=path.join(root,'src/web/src/buildStamp.ts');const original=await readFile(stamp);
 const only=process.argv.find(a=>a.startsWith('--case='))?.slice(7);
 try {
-  for(const scenario of (only==='ocrBenchmark'||only==='ocrSynthetic'?[only]:['channel','native','reading','annotations','ocr','closeButton','altF4','runtimeMissing','devUnavailable','hmr'])) {
+  for(const scenario of (only==='ocrBenchmark'||only==='ocrSynthetic'?[only]:['llm','channel','native','reading','annotations','ocr','closeButton','altF4','runtimeMissing','devUnavailable','hmr'])) {
     if(only&&only!==scenario)continue;
     if(scenario==='runtimeMissing'){const empty=path.join(output,'missing-runtime');await mkdir(empty);await host(scenario,{env:{WEBVIEW2_BROWSER_EXECUTABLE_FOLDER:empty}});}
     else if(scenario==='devUnavailable')await host(scenario,{dev:true});

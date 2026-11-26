@@ -53,6 +53,7 @@ public sealed partial class MainWindow
             if(acceptance.Scenario=="hmr") { await VerifyHmrAsync();return; }
             if(acceptance.Scenario=="reading") { await VerifyReadingAsync();return; }
             if(acceptance.Scenario=="annotations") {await VerifyAnnotationsAsync();return;}
+            if(acceptance.Scenario=="llm") {await VerifyLlmAsync();return;}
             if(acceptance.Scenario=="ocrSynthetic"){await VerifyOcrSyntheticAsync();return;}
             if(acceptance.Scenario is "ocr" or "ocrBenchmark") {await VerifyOcrAsync();return;}
             NativeInput.GetCursorPos(out originalCursor);originalForeground=NativeInput.GetForegroundWindow();Topmost=true;NativeInput.Activate(this);await Task.Delay(400);

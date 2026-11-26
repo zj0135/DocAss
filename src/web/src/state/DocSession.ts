@@ -6,7 +6,7 @@ import {AnnotationHistory,applyAnnotations,inverseMutations} from '../annotation
 import type {Tool,ToolStyle,EditDraft} from '../annotations/model';
 import type {DocumentText} from '../ocr/DocumentText';
 
-type Pending={command:Command;payload?:CommitCommand;resolve:()=>void;reject:(error:unknown)=>void};
+type Pending={command:Command;payload?:CommitCommand;signal?:AbortSignal;sent?:boolean;resolve:()=>void;reject:(error:unknown)=>void};
 export class DocSession {
   handle:DocHandle;
   readonly history=new AnnotationHistory();
@@ -22,14 +22,15 @@ export class DocSession {
   private services:AppServices;
   migrationFrom?:string;
   text?:DocumentText;
+  chat?:import('../llm/ChatSession').ChatSession;
   constructor(handle:DocHandle,services:AppServices){this.handle=handle;this.services=services;this.store.setState({access:handle.access});}
   async reacquire(){const {handle}=await this.services.documents.reacquire(this.handle.docId);this.handle=handle;await this.restore();this.store.setState({access:handle.access,error:undefined});}
   async restore(){const state=await this.services.persistence.read(this.handle.docId);if(this.closed)return;this.revision=Math.max(this.revision,state.documentRevision);for(const a of state.annotations)this.annotationRevisions.set(a.id,Math.max(a.revision,this.annotationRevisions.get(a.id)??0));this.store.setState({...state,annotations:this.pending.reduce((a,p)=>applyAnnotations(a,p.command.mutations),state.annotations)});}
   private writable(){if(this.closed||this.store.getState().closeState!=='open')throw new ServiceError('BUSY','文档正在关闭');if(this.handle.access!=='edit')throw new ServiceError('READ_ONLY','文档当前只读');if(this.failed)throw new ServiceError('STORAGE_FAILED','请先重试未确认的保存');}
-  commit(command:Command):Promise<void>{
+  commit(command:Command,signal?:AbortSignal):Promise<void>{
     try{this.writable();validate('Command',command);}catch(e){return Promise.reject(e);}
     const stable=structuredClone(command);
-    const task=new Promise<void>((resolve,reject)=>this.pending.push({command:stable,resolve,reject}));
+    const task=new Promise<void>((resolve,reject)=>this.pending.push({command:stable,signal,resolve,reject}));
     this.store.setState(s=>({annotations:applyAnnotations(s.annotations,stable.mutations),saveState:'pending',error:undefined}));
     this.startWorker();return task;
   }
@@ -37,7 +38,9 @@ export class DocSession {
   private async drain(){
     while(this.pending.length&&!this.failed){const job=this.pending[0];this.store.setState({saveState:'saving'});
       try{
+        if(job.signal?.aborted&&!job.payload){this.pending.shift();job.reject(new DOMException('已取消','AbortError'));await this.restore();this.store.setState({saveState:this.pending.length?'pending':'saved'});continue;}
         job.payload??={schemaVersion:1,docId:this.handle.docId,operationId:crypto.randomUUID(),expectedRevision:this.revision,payloadHash:await payloadHash(this.handle.docHash,job.command),command:job.command};
+        if(job.signal?.aborted&&!job.sent){job.payload=undefined;continue;}job.sent=true;
         const ack=await this.services.persistence.commit(job.payload);this.revision=Math.max(this.revision,ack.committedRevision);
         // Keep acknowledged work until refresh succeeds; retry uses the same operation.
         const saved=await this.services.persistence.read(this.handle.docId);this.revision=Math.max(this.revision,saved.documentRevision);this.pending.shift();
@@ -54,11 +57,11 @@ export class DocSession {
   private historyChanged(){this.store.setState({undoCount:this.history.undoEntries.length,redoCount:this.history.redoEntries.length});}
   remove(id:string){const current=this.store.getState().annotations.find(a=>a.id===id);if(!current)return Promise.resolve();const group=this.store.getState().annotations.filter(a=>a.id===id||current.groupId&&a.groupId===current.groupId);this.store.setState({selectedId:undefined,editor:undefined});return this.execute(group.map(a=>({type:'annotation.remove',id:a.id})));}
   put(value:Annotation){return this.execute([{type:'annotation.put',value}]);}
-  async prepareClose(){this.store.setState({closeState:'closing'});this.stop();try{await this.flush();}catch(e){this.store.setState({closeState:'blocked'});throw e;}}
+  async prepareClose(){this.chat?.stop();try{await this.chat?.flush();this.store.setState({closeState:'closing'});this.stop();await this.flush();}catch(e){this.store.setState({closeState:'blocked'});throw e;}}
   cancelClose(){if(!this.closed)this.store.setState({closeState:'open'});this.closing=undefined;}
   async discard(){await this.worker;this.pending=[];this.failed=false;this.history.clear();this.historyChanged();this.store.setState({editor:undefined,saveState:'saved',error:undefined});await this.restore();}
   close():Promise<void>{return this.closing??=this.closeCore();}
   private async closeCore(){await this.prepareClose();await this.services.documents.close(this.handle.docId);this.text?.dispose();this.closed=true;this.store.setState({closeState:'closed'});}
   async runFixture(){this.stop();const run=new AbortController();this.run=run;this.store.setState({running:true,reply:''});try{await this.services.fixtureReply(this.handle.docId,run.signal,text=>{if(!this.closed&&this.run===run&&!run.signal.aborted)this.store.setState(s=>({reply:s.reply+text}));});}catch(e){if(!run.signal.aborted)this.store.setState({error:e instanceof Error?e.message:String(e)});}finally{if(this.run===run&&!this.closed)this.store.setState({running:false});}}
-  stop(){this.run?.abort();this.run=undefined;this.text?.cancel();this.store.setState({running:false});}
+  stop(){this.chat?.stop();this.run?.abort();this.run=undefined;this.text?.cancel();this.store.setState({running:false});}
 }

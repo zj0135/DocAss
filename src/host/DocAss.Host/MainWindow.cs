@@ -35,6 +35,7 @@ public sealed partial class MainWindow : Window
     private readonly SettingsService settings;
     private readonly AttachmentService attachments;
     private readonly LoopbackServer loopback;
+    private readonly ProviderProxy providerProxy;
     private readonly BridgeRouter bridge;
     private readonly HostResourceHandler resources;
     private readonly CloseCoordinator close;
@@ -52,7 +53,7 @@ public sealed partial class MainWindow : Window
         storage = new(Path.Combine(dataDirectory, "workspace.db")); documents = new(dataDirectory); settings = new(storage); attachments = new(storage, documents, dataDirectory);
         files = new(dataDirectory, documents, storage); geometry = new(files);
         ocr=new(files,geometry,settings,storage,dataDirectory);ocr.Changed+=value=>Dispatcher.BeginInvoke(()=>Emit("ocr.changed",value));
-        loopback = new(origin); bridge = new(origin); resources = new(Path.Combine(AppContext.BaseDirectory, "wwwroot"), origin);
+        providerProxy = new(settings); loopback = new(origin, providers: providerProxy); bridge = new(origin); resources = new(Path.Combine(AppContext.BaseDirectory, "wwwroot"), origin);
         close = new(async () => { await SavePlacementAsync(); await storage.DrainAsync(); if (!storage.IsReadOnly) await storage.BackupAsync(); });
         Title = "DocAss 文档助手"; Width = 1280; Height = 800; WindowStyle = WindowStyle.SingleBorderWindow; ResizeMode = ResizeMode.CanResize;
         Background = Brushes.White; Content = web;
@@ -144,8 +145,11 @@ public sealed partial class MainWindow : Window
             var documentResponse = await DocumentResourceAsync(parts, request, token);
             if (documentResponse != null) return documentResponse;
             var ocrResponse=await OcrResourceAsync(parts,request,token);if(ocrResponse!=null)return ocrResponse;
+            if(parts.Length==4&&parts[3]=="snapshot"&&request.Method=="GET")return ResourceResponse.Json(200,await storage.ReadDocumentAsync(documents.Resolve(parts[2]).DocHash,50));
+            if(parts.Length==7&&parts[3]=="conversation"&&parts[5]=="messages"&&request.Method=="GET") {Contract.Require(int.TryParse(parts[6],out var before));return ResourceResponse.Json(200,await storage.ReadMessagesPageAsync(documents.Resolve(parts[2]).DocHash,parts[4],before));}
             if (parts.Length == 4 && parts[3] == "commands" && request.Method == "POST")
             {
+                if(close.State!="open")throw new AppException("BUSY","正在关闭，暂停接收新命令");
                 using var json = JsonDocument.Parse(await BoundedRead.ReadAsync(request.Body ?? Stream.Null, 16 * 1024 * 1024, token));
                 Contract.Require(json.RootElement.GetProperty("docId").GetString() == parts[2]);
                 return ResourceResponse.Json(200, await storage.CommitAsync(json.RootElement.Clone(), documents));
@@ -161,13 +165,16 @@ public sealed partial class MainWindow : Window
     private void RegisterMethods()
     {
         void Register(string name, Func<JsonElement, Task<object?>> action) => bridge.Register(name, (p, _) => action(p));
-        Register("app.bootstrap", async p => { Contract.Fields(p); return new { version = "0.3.0", fixturesEnabled = acceptance != null, capabilities = new { desktop = true, window = true, persistentStorage = true, credentials = true, nativeText = true, ocr = true, llm = false }, loopback = new { origin = loopback.Origin, token = loopback.SessionToken }, settings = await settings.GetAsync(), window = new { maximized = WindowState == WindowState.Maximized }, readOnly = storage.IsReadOnly }; });
+        Register("app.bootstrap", async p => { Contract.Fields(p); return new { version = "0.3.0", fixturesEnabled = acceptance != null, capabilities = new { desktop = true, window = true, persistentStorage = true, credentials = true, nativeText = true, ocr = true, llm = true }, loopback = new { origin = loopback.Origin, token = loopback.SessionToken }, settings = await settings.GetAsync(), window = new { maximized = WindowState == WindowState.Maximized }, readOnly = storage.IsReadOnly }; });
         Register("window.minimize", p => { Contract.Fields(p); WindowState = WindowState.Minimized; return Task.FromResult<object?>(null); });
         Register("window.maximize", p => { Contract.Fields(p); WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; return Task.FromResult<object?>(null); });
         Register("window.requestClose", p => { Contract.Fields(p); Dispatcher.BeginInvoke(Close); return Task.FromResult<object?>(null); });
         Register("settings.get", async p => { Contract.Fields(p); return await settings.GetAsync(); });
         Register("settings.update", async p => await settings.UpdateAsync(p));
         Register("providers.list", async p => { Contract.Fields(p); return await settings.ListProvidersAsync(); });
+        bridge.Register("providers.testDraft", async (p, token) => { Contract.Fields(p, "provider", "replacementKey"); return await providerProxy.TestDraftAsync(p.GetProperty("provider"), p.GetProperty("replacementKey").ValueKind == JsonValueKind.Null ? null : p.GetProperty("replacementKey").GetString(), token); });
+        Register("llm.begin", async p => { Contract.Fields(p, "providerId", "modelId", "runId", "docId"); documents.Resolve(p.GetProperty("docId").GetString()!, true); return await providerProxy.BeginAsync(p.GetProperty("providerId").GetString()!, p.GetProperty("modelId").GetString()!, p.GetProperty("runId").GetString()!); });
+        Register("llm.end", p => { Contract.Fields(p, "runId"); var id = p.GetProperty("runId").GetString()!; Contract.Check("Id", Json.Element(id)); providerProxy.End(id); return Task.FromResult<object?>(null); });
         Register("providers.save", async p => { Contract.Fields(p, "provider", "replacementKey", "deleteKey"); await settings.SaveProviderAsync(p.GetProperty("provider"), p.GetProperty("replacementKey").ValueKind == JsonValueKind.Null ? null : p.GetProperty("replacementKey").GetString(), p.GetProperty("deleteKey").GetBoolean()); return null; });
         Register("providers.delete", async p => { Contract.Fields(p, "id"); await settings.DeleteProviderAsync(p.GetProperty("id").GetString()!); return null; });
         Register("secrets.has", async p => { Contract.Fields(p, "id"); return new { hasKey = await settings.HasSecretAsync(p.GetProperty("id").GetString()!) }; });
@@ -231,7 +238,7 @@ public sealed partial class MainWindow : Window
         lifetime.Cancel();
         // Resource continuations and deferrals must finish before disposing their document streams and WebView.
         if(Volatile.Read(ref resourceCompleted)!=Volatile.Read(ref resourceStarted)){resourcesDrained=new(TaskCreationOptions.RunContinuationsAsynchronously);await resourcesDrained.Task;}
-        acceptanceWriter?.Dispose(); bridge.Dispose(); await loopback.DisposeAsync(); await ocr.DisposeAsync();files.Dispose(); await storage.DisposeAsync(); documents.Dispose(); databaseLease?.Dispose(); web.Dispose(); lifetime.Dispose();
+        acceptanceWriter?.Dispose(); bridge.Dispose(); await loopback.DisposeAsync(); providerProxy.Dispose(); await ocr.DisposeAsync();files.Dispose(); await storage.DisposeAsync(); documents.Dispose(); databaseLease?.Dispose(); web.Dispose(); lifetime.Dispose();
     }
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
     {

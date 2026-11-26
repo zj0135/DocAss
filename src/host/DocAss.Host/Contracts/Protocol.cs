@@ -183,6 +183,8 @@ public static class Contract
         {
             Require(Uri.TryCreate(v.GetProperty("baseUrl").GetString(), UriKind.Absolute, out var uri));
             Require(uri!.UserInfo == "" && uri.Query == "" && uri.Fragment == "" && (uri.Scheme == "https" || (uri.Scheme == "http" && (uri.Host == "localhost" || uri.Host == "127.0.0.1"))), "提供方地址必须为 HTTPS 或本机 HTTP");
+            var models=v.GetProperty("models").EnumerateArray().Select(m=>m.GetProperty("modelId").GetString()).ToArray();Require(models.Distinct().Count()==models.Length,"模型 ID 不能重复");
+            var raw=v.GetProperty("baseUrl").GetString()!;Require(!raw.Contains('%')&&!raw.Contains('\\')&&!raw.Split('/').Any(s=>s is "." or ".."),"提供方路径不允许转义或父目录");
         }
     }
 }

@@ -12,7 +12,7 @@ using DocAss.Host.Contracts;
 
 namespace DocAss.Host.Http;
 
-public sealed class LoopbackServer(string trustedOrigin, Func<CancellationToken,IAsyncEnumerable<string>>? upstream = null) : IAsyncDisposable
+public sealed class LoopbackServer(string trustedOrigin, Func<CancellationToken,IAsyncEnumerable<string>>? upstream = null, ProviderProxy? providers = null) : IAsyncDisposable
 {
     public static readonly HashSet<string> AllowedHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -39,7 +39,9 @@ public sealed class LoopbackServer(string trustedOrigin, Func<CancellationToken,
     private async Task HandleAsync(HttpContext context)
     {
         var request = context.Request; var response = context.Response;
-        if (request.Path != "/fixture/stream") { response.StatusCode = 404; return; }
+        var route = request.Path.Value!.Split('/', 3, StringSplitOptions.RemoveEmptyEntries);
+        var isProvider = route.Length == 3 && route[0] == "llm" && Guid.TryParseExact(route[1], "D", out _);
+        if (request.Path != "/fixture/stream" && !isProvider) { response.StatusCode = 404; return; }
         if (request.Headers.Origin.ToString() != trustedOrigin) { response.StatusCode = 403; return; }
         if (request.Method == "OPTIONS")
         {
@@ -61,6 +63,18 @@ public sealed class LoopbackServer(string trustedOrigin, Func<CancellationToken,
         {
             await slots.WaitAsync(cancel.Token); entered = true;
             var body = await BoundedRead.ReadAsync(request.Body, 32 * 1024 * 1024, cancel.Token);
+            if (isProvider)
+            {
+                if (providers == null) throw new AppException("UNCONFIGURED", "模型服务尚未配置");
+                using var idle = CancellationTokenSource.CreateLinkedTokenSource(cancel.Token); idle.CancelAfter(IdleTimeout);
+                using var remote = await providers.SendAsync(route[1], route[2] + request.QueryString, body, idle.Token);
+                if (remote.Content.Headers.ContentType?.MediaType != "text/event-stream") throw new AppException("PROTOCOL", "模型没有返回流式响应");
+                response.ContentType = "text/event-stream"; response.Headers.CacheControl = "no-cache";
+                await using var input = await remote.Content.ReadAsStreamAsync(idle.Token);
+                var buffer = new byte[8192];
+                while (true) { idle.CancelAfter(IdleTimeout); var count = await input.ReadAsync(buffer, idle.Token); if (count == 0) break; await response.Body.WriteAsync(buffer.AsMemory(0, count), idle.Token); await response.Body.FlushAsync(idle.Token); }
+                return;
+            }
             using var document = JsonDocument.Parse(body); Contract.Fields(document.RootElement);
             response.ContentType = "text/event-stream"; response.Headers.CacheControl = "no-cache";
             using var sourceLifetime=CancellationTokenSource.CreateLinkedTokenSource(cancel.Token);
@@ -76,7 +90,9 @@ public sealed class LoopbackServer(string trustedOrigin, Func<CancellationToken,
             }
             await response.WriteAsync("data: [DONE]\n\n", cancel.Token); await response.Body.FlushAsync(cancel.Token);
         }
-        catch (OperationCanceledException) { Interlocked.Increment(ref cancelled); }
+        catch (OperationCanceledException) { Interlocked.Increment(ref cancelled); if (isProvider && !context.RequestAborted.IsCancellationRequested) { if (!response.HasStarted) { response.StatusCode = 504; await response.WriteAsJsonAsync(new { code = "TIMEOUT", message = "模型请求超时或已取消" }); } else context.Abort(); } }
+        catch (AppException ex) { if (!response.HasStarted) { response.StatusCode = ex.Code == "AUTH_FAILED" ? 401 : ex.Code == "RATE_LIMITED" ? 429 : 400; await response.WriteAsJsonAsync(ex.ToDto()); } else context.Abort(); }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException) {if(!response.HasStarted){response.StatusCode=400;await response.WriteAsJsonAsync(new{code="INVALID_PAYLOAD",message="模型请求格式无效"});}else context.Abort();}
         catch (Exception ex) when (ex is AppException or JsonException or IOException)
         { if (!response.HasStarted) response.StatusCode = 400; else context.Abort(); }
         finally { requests.TryRemove(id, out _); if (entered) slots.Release(); CancelledRequests = cancelled; }

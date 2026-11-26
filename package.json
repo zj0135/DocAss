@@ -19,6 +19,7 @@
     "fixtures:setup": "node docs/fixtures/acquire-resources.mjs",
     "test:fixtures": "node docs/fixtures/verify.mjs",
     "verify:desktop": "node scripts/verify-desktop.mjs",
+    "verify:llm": "node scripts/verify-desktop.mjs --case=llm",
     "verify:ocr:synthetic": "node scripts/verify-desktop.mjs --case=ocrSynthetic",
     "publish": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish.ps1",
     "generate:contracts": "node scripts/generate-types.mjs && node scripts/generate-csharp-types.mjs && node scripts/generate-validators.mjs && node scripts/create-contract-fixtures.mjs && node scripts/create-canonical-fixtures.mjs",

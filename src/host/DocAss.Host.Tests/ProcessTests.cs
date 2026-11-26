@@ -38,4 +38,16 @@ public class ProcessTests
         }
         finally{if(!child.HasExited){child.Kill(true);await child.WaitForExitAsync();}}
     }
+    [Fact]public async Task RunningMessageCheckpointSurvivesForcedTermination()
+    {
+        await using var w=new Workspace();await w.Initialize();w.Documents.Close(w.Handle.DocId);var report=Path.Combine(w.Directory,"message-ack.json");using var child=Start("message",w.Directory,report,w.Handle.DocHash);
+        try{await WaitUntil(()=>File.Exists(report)&&new FileInfo(report).Length>0,child);child.Kill(true);await child.WaitForExitAsync();var saved=await w.Storage.ReadDocumentAsync(w.Handle.DocHash);Assert.Single(saved.Messages);Assert.Equal("running",saved.Messages[0].GetProperty("state").GetString());Assert.Equal("acknowledged checkpoint",saved.Messages[0].GetProperty("content")[0].GetProperty("text").GetString());Assert.Single(saved.Conversations);}
+        finally{if(!child.HasExited){child.Kill(true);await child.WaitForExitAsync();}}
+    }
+    [Fact]public async Task KilledToolTransactionCannotLeaveAnAnnotationWithoutItsEffect()
+    {
+        await using var w=new Workspace();await w.Initialize();w.Documents.Close(w.Handle.DocId);var report=Path.Combine(w.Directory,"tool-before-commit.txt");using var child=Start("tool-transaction",w.Directory,report,w.Handle.DocHash);
+        try{await WaitUntil(()=>File.Exists(report)&&new FileInfo(report).Length>0,child);child.Kill(true);await child.WaitForExitAsync();var saved=await w.Storage.ReadDocumentAsync(w.Handle.DocHash);Assert.Empty(saved.Annotations);Assert.Empty(saved.Conversations);Assert.Equal(0,saved.DocumentRevision);using var db=w.Storage.OpenRead();Assert.Equal(0L,DocAss.Host.Storage.StorageService.Scalar(db,"SELECT COUNT(*) FROM tool_effects"));}
+        finally{if(!child.HasExited){child.Kill(true);await child.WaitForExitAsync();}}
+    }
 }

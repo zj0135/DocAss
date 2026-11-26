@@ -129,6 +129,8 @@ public sealed record Message
     public string? ModelRef { get; init; } = default!;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonElement? Usage { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RunId { get; init; } = default!;
 }
 public sealed record Conversation
 {
@@ -136,6 +138,10 @@ public sealed record Conversation
     public string Title { get; init; } = default!;
     public string ModelRef { get; init; } = default!;
     public string CreatedAt { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? HeadId { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Renamed { get; init; } = default!;
 }
 public sealed record Model
 {
@@ -143,6 +149,8 @@ public sealed record Model
     public string[] Input { get; init; } = default!;
     public long ContextWindow { get; init; } = default!;
     public long MaxOutputTokens { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? Compat { get; init; } = default!;
 }
 public sealed record Provider
 {
@@ -332,4 +340,56 @@ public sealed record OcrResult
     public bool Fallback { get; init; } = default!;
     public bool Cached { get; init; } = default!;
     public double ElapsedMs { get; init; } = default!;
+}
+public sealed record ToolGetInfo
+{
+}
+public sealed record ToolPageText
+{
+    public long From { get; init; } = default!;
+    public long To { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Cursor { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? MaxChars { get; init; } = default!;
+}
+public sealed record ToolSearch
+{
+    public string Query { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Cursor { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? MaxHits { get; init; } = default!;
+}
+public sealed record ToolPageImage
+{
+    public long Page { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? MaxEdge { get; init; } = default!;
+}
+public sealed record ToolRegionImage
+{
+    public long Page { get; init; } = default!;
+    public double[] Rect { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? MaxEdge { get; init; } = default!;
+}
+public sealed record ToolAnnotations
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Page { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Type { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Cursor { get; init; } = default!;
+}
+public sealed record ToolCreateAnnotation
+{
+    public long Page { get; init; } = default!;
+    public string Quote { get; init; } = default!;
+    public string Type { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Comment { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AnchorToken { get; init; } = default!;
 }

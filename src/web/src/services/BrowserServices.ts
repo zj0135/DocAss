@@ -77,6 +77,7 @@ export class BrowserServices implements AppServices {
   clipboard = {write:async(_docId:string,text:string)=>navigator.clipboard.writeText(text)};
   ocr:AppServices['ocr'] = { start: unsupported,upload:unsupported,status:unsupported,result:unsupported,unsubscribe:async()=>{},subscribe:()=>()=>{},getOverride:async()=> 'auto',setOverride:unsupported,clearCache:unsupported };
   persistence: AppServices['persistence'] = {
+    messages:async(id,conversationId,before)=>(await this.persistence.read(id)).messages.filter(m=>m.conversationId===conversationId&&m.sequence<before).sort((a,b)=>a.sequence-b.sequence).slice(-50),
     commit: async (payload: CommitCommand) => {
       validate('CommitCommand', payload); const handle = this.resolve(payload.docId);
       if (handle.access !== 'edit') throw new ServiceError('READ_ONLY', '文档当前只读');
@@ -108,6 +109,7 @@ export class BrowserServices implements AppServices {
     },
   };
   providers: AppServices['providers'] = {
+    testDraft:unsupported,
     list: async () => { const db = await this.database; return request(db.transaction('providers').objectStore('providers').getAll()); },
     save: async (provider: Provider, key?: string) => {
       if (key) throw new ServiceError('UNCONFIGURED', '浏览器模式不保存 API 密钥，请使用桌面应用'); validate('Provider', provider);
@@ -118,6 +120,7 @@ export class BrowserServices implements AppServices {
     delete: async id => { validate('Id', id); const db = await this.database, tx = db.transaction('providers', 'readwrite'), completion = done(tx); tx.objectStore('providers').delete(id); await completion; },
   };
   attachments = { begin: unsupported, upload: unsupported, commit: unsupported, resolve: async () => ({available:false}) };
+  llm:AppServices['llm']={begin:unsupported,end:async()=>{},channel:()=>{throw new ServiceError('UNCONFIGURED','真实模型服务需要桌面应用');}};
   window = { minimize: unsupported, maximize: unsupported, requestClose: unsupported, subscribe: (_fn: (maximized: boolean) => void) => () => {},onClosing:(_fn:(id:string)=>void)=>()=>{},onCloseCancelled:(_fn:()=>void)=>()=>{},closeReady:unsupported };
   async fixtureReply(id: string, signal: AbortSignal, onChunk: (text: string) => void) {
     this.resolve(id); const linked = AbortSignal.any([signal, this.lifetime.signal]);

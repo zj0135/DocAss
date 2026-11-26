@@ -89,7 +89,7 @@ public sealed class StorageService : IAsyncDisposable
         Execute(c, "INSERT INTO documents(docHash,documentRevision,pageCount,displayName,schemaVersion) VALUES($h,0,$p,$n,1) ON CONFLICT(docHash) DO NOTHING", null, ("$h", handle.DocHash), ("$p", pageCount), ("$n", handle.FileName));
         Dirty = true; return true;
     });
-    public Task<DocumentSnapshot> ReadDocumentAsync(string hash) => Enqueue(() =>
+    public Task<DocumentSnapshot> ReadDocumentAsync(string hash, int? messageLimit = null) => Enqueue(() =>
     {
         using var c = OpenRead(); using var tx = c.BeginTransaction(deferred: true);
         var revision = Convert.ToInt64(Scalar(c, "SELECT documentRevision FROM documents WHERE docHash=$h", tx, ("$h", hash)) ?? throw new AppException("DOCUMENT_CLOSED", "文档记录不存在"));
@@ -98,8 +98,13 @@ public sealed class StorageService : IAsyncDisposable
             using var command = Command(c, sql, tx, ("$h", hash)); using var reader = command.ExecuteReader(); var values = new List<JsonElement>();
             while (reader.Read()) values.Add(JsonDocument.Parse(reader.GetString(0)).RootElement.Clone()); return values.ToArray();
         }
-        var snapshot = new DocumentSnapshot(revision, Rows("SELECT payload FROM annotations WHERE docHash=$h"), Rows("SELECT payload FROM conversations WHERE docHash=$h"), Rows("SELECT payload FROM messages WHERE docHash=$h ORDER BY sequence"));
+        var snapshot = new DocumentSnapshot(revision, Rows("SELECT payload FROM annotations WHERE docHash=$h"), Rows("SELECT payload FROM conversations WHERE docHash=$h"), Rows(messageLimit == null ? "SELECT payload FROM messages WHERE docHash=$h ORDER BY sequence" : "SELECT payload FROM (SELECT payload,sequence FROM messages WHERE docHash=$h ORDER BY sequence DESC LIMIT 50) ORDER BY sequence"));
         tx.Commit(); return snapshot;
+    });
+    public Task<JsonElement[]> ReadMessagesPageAsync(string hash,string conversationId,int before) => Enqueue(() =>
+    {
+        Contract.Check("Id",Json.Element(conversationId));Contract.Require(before>=0);
+        using var c=OpenRead();using var command=Command(c,"SELECT payload FROM messages WHERE docHash=$h AND conversationId=$c AND sequence<$b ORDER BY sequence DESC LIMIT 50",null,("$h",hash),("$c",conversationId),("$b",before));using var reader=command.ExecuteReader();var values=new List<JsonElement>();while(reader.Read())values.Add(JsonDocument.Parse(reader.GetString(0)).RootElement.Clone());values.Reverse();return values.ToArray();
     });
     public Task<long> ReadRevisionAsync(string hash) => Enqueue(() => { using var c = OpenRead(); return Convert.ToInt64(Scalar(c, "SELECT documentRevision FROM documents WHERE docHash=$h", null, ("$h", hash)) ?? throw new AppException("DOCUMENT_CLOSED", "文档记录不存在")); });
     public Task<JsonElement?> GetOperationAsync(string hash, string operationId) => Enqueue(() =>
