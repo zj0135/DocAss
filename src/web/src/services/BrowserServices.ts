@@ -18,15 +18,17 @@ export async function abortableDelay(ms: number, signal?: AbortSignal): Promise<
   });
 }
 export class BrowserServices implements AppServices {
+  diagnostics:AppServices['diagnostics']={info:async()=>({version:'0.3.0',runtime:'浏览器 · '+navigator.userAgent,licenses:['React — MIT','PDF.js — Apache-2.0','pi — MIT']}),openLogs:unsupported,openLicenses:unsupported};
   readonly capabilities: Capabilities = { desktop: false, window: false, persistentStorage: true, credentials: false, nativeText: false, ocr: false, llm: false };
   private database: Promise<IDBDatabase>;
   private handles = new Map<string, DocHandle>();
   private lifetime = new AbortController();
   private sources = new Map<string,DocumentSource>();
+  private uploads=new Map<string,{hash:string;blob?:Blob;digest?:string}>();private objectUrls=new Map<string,string>();
   constructor(name = 'docass-v1') {
     this.database = new Promise((resolve, reject) => {
-      const open = indexedDB.open(name, 2);
-      open.onupgradeneeded = () => { for (const store of ['settings','documents','operations','providers','files','recent']) if(!open.result.objectStoreNames.contains(store))open.result.createObjectStore(store); };
+      const open = indexedDB.open(name, 3);
+      open.onupgradeneeded = () => { for (const store of ['settings','documents','operations','providers','files','recent','attachments']) if(!open.result.objectStoreNames.contains(store))open.result.createObjectStore(store); };
       open.onsuccess = () => { open.result.onversionchange = () => open.result.close(); resolve(open.result); };
       open.onerror = () => reject(new ServiceError('STORAGE_FAILED', '无法打开浏览器存储'));
       open.onblocked = () => reject(new ServiceError('STORAGE_FAILED', '请关闭其他标签后重试'));
@@ -83,7 +85,7 @@ export class BrowserServices implements AppServices {
       if (handle.access !== 'edit') throw new ServiceError('READ_ONLY', '文档当前只读');
       const digest = await payloadHash(handle.docHash, payload.command);
       if (digest !== payload.payloadHash) throw new ServiceError('HASH_MISMATCH', '提交内容校验失败');
-      const db = await this.database; const tx = db.transaction(['documents','operations'], 'readwrite');
+      const db = await this.database; const tx = db.transaction(['documents','operations','attachments'], 'readwrite');
       const completion = done(tx); completion.catch(() => {});
       try {
         const operations = tx.objectStore('operations'), docs = tx.objectStore('documents'), key = handle.docHash + ':' + payload.operationId;
@@ -91,6 +93,7 @@ export class BrowserServices implements AppServices {
         if (previous) { if (previous.hash !== digest) throw new ServiceError('OPERATION_CONFLICT', '同一操作编号不能用于其他内容'); await completion; return previous.result; }
         const doc = (await request<SavedDoc>(docs.get(handle.docHash)))!;
         if (doc.state.documentRevision !== payload.expectedRevision) throw new ServiceError('REVISION_CONFLICT', '文档已更新，请重新读取', true);
+        for(const mutation of payload.command.mutations)if(mutation.type==='message.put')for(const block of mutation.value.content)if(block.type==='attachment'&&!await request(tx.objectStore('attachments').get(handle.docHash+':'+block.attachmentId)))throw new ServiceError('INVALID_PAYLOAD','附件不存在或不属于当前文档');
         applyCommand(doc, payload.command); doc.state.documentRevision++;
         const result = { operationId: payload.operationId, committedRevision: doc.state.documentRevision, payloadHash: digest };
         docs.put(doc, handle.docHash); operations.put({ hash: digest, result }, key); await completion; return result;
@@ -119,14 +122,19 @@ export class BrowserServices implements AppServices {
     },
     delete: async id => { validate('Id', id); const db = await this.database, tx = db.transaction('providers', 'readwrite'), completion = done(tx); tx.objectStore('providers').delete(id); await completion; },
   };
-  attachments = { begin: unsupported, upload: unsupported, commit: unsupported, resolve: async () => ({available:false}) };
+  attachments:AppServices['attachments']={
+    begin:async id=>{const h=this.resolve(id);if(h.access!=='edit')throw new ServiceError('READ_ONLY','文档当前只读');const uploadId=crypto.randomUUID();this.uploads.set(uploadId,{hash:h.docHash});return uploadId;},
+    upload:async(id,uploadId,blob,signal)=>{const h=this.resolve(id),u=this.uploads.get(uploadId);signal?.throwIfAborted();if(!u||u.hash!==h.docHash)throw new ServiceError('FORBIDDEN','附件不属于此文档');const bytes=new Uint8Array(await blob.arrayBuffer());if(blob.type!=='image/png'||bytes.length>8*1024*1024||bytes.length<24||[137,80,78,71,13,10,26,10].some((b,i)=>bytes[i]!==b))throw new ServiceError('INVALID_PAYLOAD','附件必须是有效 PNG，且不超过 8 MiB');const view=new DataView(bytes.buffer),w=view.getUint32(16),height=view.getUint32(20);if(!w||!height||w*height>12000000||w>16384||height>16384)throw new ServiceError('INVALID_PAYLOAD','附件尺寸超限');if(typeof createImageBitmap==='function'){const bitmap=await createImageBitmap(blob);bitmap.close();}signal?.throwIfAborted();u.blob=blob;u.digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');},
+    commit:async(id,uploadId)=>{const h=this.resolve(id),u=this.uploads.get(uploadId);if(!u||u.hash!==h.docHash||!u.blob)throw new ServiceError('INVALID_PAYLOAD','附件尚未完成上传');const db=await this.database,tx=db.transaction('attachments','readwrite'),completion=done(tx);tx.objectStore('attachments').put({blob:u.blob,digest:u.digest},h.docHash+':'+uploadId);await completion;this.uploads.delete(uploadId);return uploadId;},
+    resolve:async(id,attachmentId)=>{validate('Id',attachmentId);const h=this.resolve(id),key=h.docHash+':'+attachmentId,row=await this.read<{blob:Blob;digest:string}>('attachments',key);if(!row)return {available:false};const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await row.blob.arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join('');if(digest!==row.digest)return {available:false};let url=this.objectUrls.get(key);if(!url){url=URL.createObjectURL(row.blob);this.objectUrls.set(key,url);}return {available:true,url};}
+  };
   llm:AppServices['llm']={begin:unsupported,end:async()=>{},channel:()=>{throw new ServiceError('UNCONFIGURED','真实模型服务需要桌面应用');}};
   window = { minimize: unsupported, maximize: unsupported, requestClose: unsupported, subscribe: (_fn: (maximized: boolean) => void) => () => {},onClosing:(_fn:(id:string)=>void)=>()=>{},onCloseCancelled:(_fn:()=>void)=>()=>{},closeReady:unsupported };
   async fixtureReply(id: string, signal: AbortSignal, onChunk: (text: string) => void) {
     this.resolve(id); const linked = AbortSignal.any([signal, this.lifetime.signal]);
     for (const text of ['这是示例回复。', '内容用于验证分段显示。', '可以随时停止。', '示例结束。']) { await abortableDelay(120, linked); this.resolve(id); if (!linked.aborted) onChunk(text); }
   }
-  dispose() { this.lifetime.abort(); this.handles.clear(); void this.database.then(db => db.close()); }
+  dispose() { this.lifetime.abort(); this.handles.clear();this.uploads.clear();for(const url of this.objectUrls.values())URL.revokeObjectURL(url);this.objectUrls.clear(); void this.database.then(db => db.close()); }
 }
 function applyCommand(doc: SavedDoc, command: Command) {
   for (const mutation of command.mutations) {
@@ -139,7 +147,7 @@ function applyCommand(doc: SavedDoc, command: Command) {
       const v = mutation.value;
       if ('docHash' in v && (v.docHash !== doc.handle.docHash || v.page > (doc.pageCount??12)&&v.migrationState!=='needsReview')) throw new ServiceError('INVALID_PAYLOAD', '标注文档或页码无效');
       if ('conversationId' in v && !doc.state.conversations.some(c => c.id === v.conversationId)) throw new ServiceError('INVALID_PAYLOAD', '会话不存在');
-      if ('content' in v && v.content.some(b => b.type === 'attachment')) throw new ServiceError('UNCONFIGURED', '浏览器示例暂不保存附件');
+      if ('content' in v && doc.state.messages.some(m=>m.id===v.id&&m.conversationId!==v.conversationId))throw new ServiceError('INVALID_PAYLOAD','消息不能更换所属会话');
       const index = list.findIndex(item => item.id === v.id); if (index < 0) list.push(v); else list[index] = v;
     } else { const index = list.findIndex(item => item.id === mutation.id); if (index >= 0) list.splice(index, 1); if (kind === 'conversation') doc.state.messages = doc.state.messages.filter(m => m.conversationId !== mutation.id); }
   }

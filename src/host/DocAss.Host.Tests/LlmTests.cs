@@ -32,6 +32,15 @@ public class LlmTests
         var requests=0;await using var upstream=await Server(async c=>{requests++;c.Response.ContentType="text/event-stream";await c.Response.WriteAsync("data: [DONE]\n\n");});await using var storage=new StorageService(TempDb());await storage.InitializeAsync();var settings=new SettingsService(storage);using var proxy=new ProviderProxy(settings);
         foreach(var allow in new[]{false,true})foreach(var vision in new[]{false,true}){var p=Provider("openai-completions",upstream.Urls.Single(),allow,vision);await settings.SaveProviderAsync(p);var id=p.GetProperty("id").GetString()!;var run=Guid.NewGuid().ToString();await proxy.BeginAsync(id,"fixture",run);await settings.SaveProviderAsync(Provider("openai-completions","https://changed.invalid",!allow,!vision,id));var body=Encoding.UTF8.GetBytes("{\"model\":\"fixture\",\"messages\":[{\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,AA==\"}}]}]}");if(allow&&vision){using var response=await proxy.SendAsync(run,"chat/completions",body,default);Assert.True(response.IsSuccessStatusCode);}else await Assert.ThrowsAsync<AppException>(()=>proxy.SendAsync(run,"chat/completions",body,default));proxy.End(run);}Assert.Equal(1,requests);
     }
+    [Theory][InlineData("openai-completions","chat/completions","Authorization")][InlineData("openai-responses","responses","Authorization")][InlineData("anthropic-messages","messages","x-api-key")][InlineData("google-generative-ai","models/fixture:streamGenerateContent?alt=sse","x-goog-api-key")]
+    public async Task EveryProtocolKeepsTheFrozenKeyAndBlocksRedirectsAfterReplacement(string api,string suffix,string header)
+    {
+        var keys=new List<string>();var redirect=false;
+        await using var upstream=await Server(async c=>{keys.Add(c.Request.Headers[header].ToString());if(redirect){c.Response.StatusCode=302;c.Response.Headers.Location="http://127.0.0.1:1/leak";}else{c.Response.ContentType="text/event-stream";await c.Response.WriteAsync("data: [DONE]\n\n");}});
+        await using var storage=new StorageService(TempDb());await storage.InitializeAsync();var settings=new SettingsService(storage);var provider=Provider(api,upstream.Urls.Single());using var proxy=new ProviderProxy(settings);var id=provider.GetProperty("id").GetString()!;await settings.SaveProviderAsync(provider,"old-private-key");var oldRun=Guid.NewGuid().ToString();await proxy.BeginAsync(id,"fixture",oldRun);await settings.SaveProviderAsync(provider,"new-private-key");var newRun=Guid.NewGuid().ToString();await proxy.BeginAsync(id,"fixture",newRun);
+        var body=Encoding.UTF8.GetBytes("{\"model\":\"fixture\"}");using(var response=await proxy.SendAsync(oldRun,suffix,body,default))Assert.True(response.IsSuccessStatusCode);using(var response=await proxy.SendAsync(newRun,suffix,body,default))Assert.True(response.IsSuccessStatusCode);Assert.EndsWith("old-private-key",keys[0]);Assert.EndsWith("new-private-key",keys[1]);redirect=true;Assert.Equal("UPSTREAM_REDIRECT_BLOCKED",(await Assert.ThrowsAsync<AppException>(()=>proxy.SendAsync(newRun,suffix,body,default))).Code);Assert.Equal(3,keys.Count);
+        await storage.BackupAsync();foreach(var file in Directory.GetFiles(Path.GetDirectoryName(storage.DatabasePath)!)){using var stream=new FileStream(file,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete);using var bytes=new MemoryStream();await stream.CopyToAsync(bytes);var data=Encoding.UTF8.GetString(bytes.ToArray());Assert.DoesNotContain("old-private-key",data);Assert.DoesNotContain("new-private-key",data);}
+    }
     [Theory][InlineData(401,"AUTH_FAILED")][InlineData(429,"RATE_LIMITED")][InlineData(302,"UPSTREAM_REDIRECT_BLOCKED")]
     public async Task ErrorsAndRedirectsAreDistinguishable(int status,string code)
     {
@@ -44,6 +53,15 @@ public class LlmTests
     [Fact]public async Task ProviderAndKeyRollbackAtomicallyAndDeletionPreservesHistory()
     {
         await using var storage=new StorageService(TempDb());await storage.InitializeAsync();var settings=new SettingsService(storage);var p=Provider("openai-completions","https://example.invalid/v1");storage.FaultInjection=step=>{if(step=="provider")throw new IOException("disk full");};await Assert.ThrowsAsync<AppException>(()=>settings.SaveProviderAsync(p,"fake-key"));storage.FaultInjection=null;Assert.Empty(await settings.ListProvidersAsync());Assert.False(await settings.HasSecretAsync(p.GetProperty("id").GetString()!));await settings.SaveProviderAsync(p,"fake-key");await settings.DeleteProviderAsync(p.GetProperty("id").GetString()!);Assert.Empty(await settings.ListProvidersAsync());Assert.False(await settings.HasSecretAsync(p.GetProperty("id").GetString()!));
+    }
+    [Fact]public async Task ProviderSmokeUsesSavedConfigurationWithoutRecordingSecretsOrContent()
+    {
+        const string secret="smoke-private-sentinel";string? body=null;
+        await using var upstream=await Server(async c=>{Assert.Equal("Bearer "+secret,c.Request.Headers.Authorization);body=await new StreamReader(c.Request.Body).ReadToEndAsync();c.Response.ContentType="text/event-stream";await c.Response.WriteAsync("data: private-response\n\n");});
+        await using var storage=new StorageService(TempDb());await storage.InitializeAsync();var output=storage.DatabasePath+".smoke.json";
+        await Verification.ProviderSmoke.RunAsync(storage.DatabasePath,output);Assert.Contains("blocked",await File.ReadAllTextAsync(output));
+        await new SettingsService(storage).SaveProviderAsync(Provider("openai-completions",upstream.Urls.Single()),secret);await Verification.ProviderSmoke.RunAsync(storage.DatabasePath,output);
+        var report=await File.ReadAllTextAsync(output);Assert.Contains("passed",report);Assert.DoesNotContain(secret,report);Assert.DoesNotContain("private-response",report);Assert.DoesNotContain("Reply OK",report);Assert.Contains("Reply OK",body);Assert.DoesNotContain("document",body);
     }
     [Fact]public async Task MessagePagesAreBoundedAndConversationDeletionRetainsAnnotations()
     {

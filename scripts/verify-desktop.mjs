@@ -25,10 +25,10 @@ async function host(scenario,{dev=false,env={},onReady}={}) {
   let exited=false;finished.then(()=>exited=true);
   try {
     if(onReady){for(let i=0;i<300&&!await exists(report+'.ready')&&!exited;i++)await delay(100);if(!await exists(report+'.ready'))throw Error('HMR host did not become ready');await onReady();}
-    for(let i=0;i<(['annotations','ocr','ocrBenchmark','ocrSynthetic'].includes(scenario)?1800:550)&&!exited;i++)await delay(100);
+    for(let i=0;i<(scenario==='performance'?6600:['agentIntegration','annotations','ocr','ocrBenchmark','ocrSynthetic'].includes(scenario)?1800:550)&&!exited;i++)await delay(100);
     if(!exited)throw Error(`${scenario} timed out`);
     const exitCode=await finished;if(exitCode!==0)throw Error(`${scenario} exited ${exitCode}; see ${report}`);
-    const result=JSON.parse(await readFile(report,'utf8'));reports.push({scenario,...result});console.log(scenario,JSON.stringify(result));
+    const result=JSON.parse(await readFile(report,'utf8'));reports.push({scenario,...result});const {workload,processMemory,...summary}=result;console.log(scenario,JSON.stringify(summary));
     if(!result.ok)throw Error(`${scenario} failed; see ${report}`);
     if(result.loopbackOrigin){let closed=false;try{await fetch(result.loopbackOrigin,{signal:AbortSignal.timeout(1000)});}catch{closed=true;}if(!closed)throw Error('Loopback remained open after exit');}
   }finally{if(!exited)child.kill();}
@@ -36,7 +36,7 @@ async function host(scenario,{dev=false,env={},onReady}={}) {
 let vite;const stamp=path.join(root,'src/web/src/buildStamp.ts');const original=await readFile(stamp);
 const only=process.argv.find(a=>a.startsWith('--case='))?.slice(7);
 try {
-  for(const scenario of (only==='ocrBenchmark'||only==='ocrSynthetic'?[only]:['llm','channel','native','reading','annotations','ocr','closeButton','altF4','runtimeMissing','devUnavailable','hmr'])) {
+  for(const scenario of (only==='agentIntegration'||only==='performance'||only==='ocrBenchmark'||only==='ocrSynthetic'?[only]:['llm','channel','native','reading','annotations','ocr','closeButton','altF4','runtimeMissing','devUnavailable','hmr'])) {
     if(only&&only!==scenario)continue;
     if(scenario==='runtimeMissing'){const empty=path.join(output,'missing-runtime');await mkdir(empty);await host(scenario,{env:{WEBVIEW2_BROWSER_EXECUTABLE_FOLDER:empty}});}
     else if(scenario==='devUnavailable')await host(scenario,{dev:true});

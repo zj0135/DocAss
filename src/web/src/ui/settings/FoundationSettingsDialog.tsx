@@ -7,13 +7,16 @@ export function FoundationSettingsDialog({ services, initial, onSaved, onClose }
   const [draft,setDraft] = useState(initial), [providers,setProviders] = useState<Provider[]>([]), [selected,setSelected] = useState('');
   const [key,setKey] = useState(''), [error,setError] = useState(''), [cacheStatus,setCacheStatus] = useState(''), [busy,setBusy] = useState(false), [loaded,setLoaded] = useState(false);
   const provider = providers.find(p=>p.id===selected);
-  const original=useRef(''),originalProviders=useRef(''),test=useRef<AbortController|null>(null);
+  const [about,setAbout]=useState<{version:string;runtime:string;licenses:string[]}>();
+  useEffect(()=>{void services.diagnostics.info().then(setAbout).catch(e=>setError(String(e)));},[services]);
+  const original=useRef(''),originalProviders=useRef(''),test=useRef<AbortController|null>(null),errorRef=useRef<HTMLParagraphElement>(null);
+  useEffect(()=>{if(error)errorRef.current?.scrollIntoView({block:'nearest'});},[error]);
   const [testing,setTesting]=useState(false),[testResult,setTestResult]=useState(''),[keys,setKeys]=useState<Record<string,string>>({});
   useEffect(()=>{ let active=true;void Promise.all([services.providers.list(),services.settings.get()]).then(([list,settings])=>{if(active){setProviders(list);setSelected(list[0]?.id??'');setDraft(settings);setLoaded(true);}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;}; },[services]);
   useEffect(()=>{if(loaded&&!original.current){original.current=JSON.stringify(draft);originalProviders.current=JSON.stringify(providers);}},[loaded,draft,providers]);
   useEffect(()=>()=>test.current?.abort(),[]);
   const close = (saved=false) => { if(!saved&&(key||Object.values(keys).some(Boolean)||original.current!==JSON.stringify(draft)||originalProviders.current!==JSON.stringify(providers))&&!window.confirm('设置尚未保存，确定放弃修改？'))return;test.current?.abort();setKey('');setKeys({});onClose(); };
-  useEffect(()=>{const escape=(e:KeyboardEvent)=>{if(e.key==='Escape'){e.preventDefault();close();}};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);});
+  useEffect(()=>{const escape=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!e.isComposing){e.preventDefault();e.stopImmediatePropagation();close();}};window.addEventListener('keydown',escape,true);return()=>window.removeEventListener('keydown',escape,true);});
   const update = (fields: Partial<Provider>) => setProviders(list=>list.map(p=>p.id===selected?{...p,...fields}:p));
   const save = async () => {
     setBusy(true);setError('');
@@ -26,8 +29,10 @@ export function FoundationSettingsDialog({ services, initial, onSaved, onClose }
     <div className="bg-white rounded-2xl shadow-xl w-[760px] max-w-full max-h-full overflow-auto border border-slate-200">
       <header className="flex justify-between items-center p-5 border-b border-slate-200"><h2 className="font-semibold flex items-center gap-2"><SettingsIcon size={18}/>设置</h2><button aria-label="关闭设置" onClick={()=>close()} disabled={busy}><X size={18}/></button></header>
       <div className="p-6 space-y-5 text-sm">
-        {error && <p role="alert" className="text-red-600">{error}</p>}
+        {error && <p ref={errorRef} role="alert" className="text-red-600">{error}</p>}
         <label className="block">标注作者<input disabled={!loaded||busy} aria-label="标注作者" className="settings-input" value={draft.author} onChange={e=>setDraft({...draft,author:e.target.value})}/></label>
+        <label className="block">默认标注颜色<input aria-label="默认标注颜色" type="color" value={draft.color} onChange={e=>setDraft({...draft,color:e.target.value})}/></label>
+        <label className="block">默认不透明度<input aria-label="默认不透明度" type="number" min={0} max={1} step={.05} value={draft.opacity} onChange={e=>setDraft({...draft,opacity:Number(e.target.value)})}/></label>
         <label className="block">对话面板宽度<input disabled={!loaded||busy} aria-label="对话面板宽度" type="number" min={340} max={640} className="settings-input" value={draft.chatWidth} onChange={e=>setDraft({...draft,chatWidth:Number(e.target.value)})}/></label>
         <fieldset disabled={!loaded||busy||!services.capabilities.ocr} className="border-t pt-4 space-y-3"><legend className="font-semibold">本机文字识别</legend>
           <label className="block">模型档位 <select aria-label="OCR 模型档位" value={draft.ocr?.modelTier??'Small'} onChange={e=>setDraft({...draft,ocr:{modelTier:e.target.value as 'Tiny'|'Small'|'Medium',backend:draft.ocr?.backend??'Auto',cacheMiB:draft.ocr?.cacheMiB??512}})}>{['Tiny','Small','Medium'].map(t=><option key={t}>{t}</option>)}</select></label>
@@ -62,7 +67,8 @@ export function FoundationSettingsDialog({ services, initial, onSaved, onClose }
           <button disabled={busy} className="text-red-600" onClick={async()=>{if(!window.confirm('删除此提供方和凭据？引用它的历史会话会保留，继续提问前需重新选择模型。'))return;setBusy(true);try{await services.providers.delete(provider.id);setProviders(list=>list.filter(p=>p.id!==provider.id));setSelected('');setKey('');}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}}>删除提供方及凭据</button>
         </div>}
       </div>
-      <footer className="p-4 flex justify-end gap-3 border-t border-slate-200"><button onClick={()=>close()} disabled={busy}>取消</button><button className="bg-blue-600 text-white px-5 py-2 rounded-lg disabled:opacity-50" onClick={()=>void save()} disabled={busy||!loaded||testing}>{busy?'保存中…':'保存'}</button></footer>
+      <section aria-label="关于" className="p-6 border-t text-sm space-y-2"><h3 className="font-semibold">关于 DocAss</h3><p>版本 {about?.version??'正在读取…'}</p><p className="break-words text-xs">{about?.runtime}</p><details><summary>开源许可证</summary><ul>{about?.licenses.map(name=><li key={name}>{name}</li>)}</ul></details>{services.capabilities.desktop&&<div className="flex gap-4"><button onClick={()=>void services.diagnostics.openLogs().catch(e=>setError(String(e)))}>打开日志目录</button><button onClick={()=>void services.diagnostics.openLicenses().catch(e=>setError(String(e)))}>打开许可证目录</button></div>}</section>
+      <footer className="p-4 flex justify-end gap-3 border-t border-slate-200 sticky bottom-0 bg-white"><button onClick={()=>close()} disabled={busy}>取消</button><button className="bg-blue-600 text-white px-5 py-2 rounded-lg disabled:opacity-50" onClick={()=>void save()} disabled={busy||!loaded||testing}>{busy?'保存中…':'保存'}</button></footer>
     </div>
   </div>;
 }

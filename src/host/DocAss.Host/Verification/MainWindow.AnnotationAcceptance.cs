@@ -25,14 +25,14 @@ public sealed partial class MainWindow
                 """);return await GlyphScreenPointAsync(second,2,true,0);
         });
         await RunPageCheck("commitTextGroup", """
-            await until(()=>button('高亮选中文字'));button('高亮选中文字').click();await pause(100);await until(()=>document.body.innerText.includes('已自动保存'));button('标注').click();await until(()=>document.querySelectorAll('[data-annotation-id]').length===2);
+            await until(()=>button('高亮选中文字'));button('高亮选中文字').click();await pause(100);await until(()=>document.body.innerText.includes('已自动保存'));if(!document.querySelector('[aria-label="标注列表"]'))button('标注').click();await until(()=>document.querySelectorAll('[data-annotation-id]').length===2);
             button('撤销').click();await until(()=>document.querySelectorAll('[data-annotation-id]').length===0);button('重做').click();await until(()=>document.querySelectorAll('[data-annotation-id]').length===2);await until(()=>document.body.innerText.includes('已自动保存'));
             """);
         var saved=await storage.ReadDocumentAsync(handle.DocHash);Check("twoPageAtomicGroup",saved.Annotations.Length==2&&saved.Annotations[0].GetProperty("groupId").GetString()==saved.Annotations[1].GetProperty("groupId").GetString()&&saved.DocumentRevision==3);
         var originalQuads=saved.Annotations.Select(a=>a.GetProperty("quads").GetRawText()).ToArray();
         await RunPageCheck("closeAndReopenAnnotations", """
             document.querySelector('button[title="关闭标签页 (Ctrl+W)"]').click();await until(()=>!document.querySelector('[data-reader]'));
-            button('annotation-source.pdf').click();await until(()=>document.querySelector('[data-reader]'));button('标注').click();await until(()=>document.querySelectorAll('[data-annotation-id]').length===2);button('适合整页').click();button('旋转').click();await pause(700);
+            button('annotation-source.pdf').click();await until(()=>document.querySelector('[data-reader]'));if(!document.querySelector('[aria-label="标注列表"]'))button('标注').click();await until(()=>document.querySelectorAll('[data-annotation-id]').length===2);button('适合整页').click();button('旋转').click();await pause(700);
             await until(()=>{const c=document.querySelector('[data-page="1"] canvas[data-rendered]');if(!c)return false;const p=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let dark=0;for(let i=0;i<p.length;i+=4)if(p[i]<100&&p[i+3])dark++;return dark>100;});
             """,10000);
         Check("persistedTextQuads",(await storage.ReadDocumentAsync(handle.DocHash)).Annotations.Select(a=>a.GetProperty("quads").GetRawText()).SequenceEqual(originalQuads));
@@ -40,7 +40,7 @@ public sealed partial class MainWindow
         await File.AppendAllTextAsync(source,"\n% external document revision\n");
         await Task.Delay(5200);
         await RunPageCheck("versionAndPreview", """
-            await until(()=>button('打开新版本'));button('打开新版本').click();await until(()=>button('预览标注迁移'));button('预览标注迁移').click();await until(()=>button('确认复制标注到新版本'));check(document.body.innerText.includes('待复核'),'ambiguous quote review');button('确认复制标注到新版本').click();await until(()=>!document.querySelector('[aria-label="标注迁移"]'));button('标注').click();await until(()=>document.querySelectorAll('[data-annotation-id]').length===2);
+            await until(()=>button('打开新版本'));button('打开新版本').click();await until(()=>button('预览标注迁移'));button('预览标注迁移').click();await until(()=>button('确认复制标注到新版本'));check(document.body.innerText.includes('待复核'),'ambiguous quote review');button('确认复制标注到新版本').click();await until(()=>!document.querySelector('[aria-label="标注迁移"]'));if(!document.querySelector('[aria-label="标注列表"]'))button('标注').click();await until(()=>document.querySelectorAll('[data-annotation-id]').length===2);
             """,20000);
         var next=await files.OpenAsync(source);var migrated=await storage.ReadDocumentAsync(next.Handle!.DocHash);
         Check("migrationPreservesOld",migrated.Annotations.Length==2&&(await storage.ReadDocumentAsync(handle.DocHash)).Annotations.Length==2&&migrated.Annotations.Any(a=>a.GetProperty("migrationState").GetString()=="needsReview"));
@@ -64,7 +64,7 @@ public sealed partial class MainWindow
             """);
         storage.FaultInjection=null;Check("slowCommandAcknowledged",(await storage.ReadDocumentAsync(next.Handle.DocHash)).Annotations.Length==4);
         await RunPageCheck("underlineTool", """
-            document.querySelector('button[aria-label="下划线工具"]').click();await until(()=>document.querySelector('[data-reader]').dataset.textPages.split(',').includes('1'));await pause(400);
+            button('适合整页').click();document.querySelector('[data-testid="reader-scroll"]').scrollTop=0;document.querySelector('button[aria-label="下划线工具"]').click();await until(()=>document.querySelector('[data-reader]').dataset.textPages.split(',').includes('1'));await pause(400);
             """);
         var lineFrom=await GlyphScreenPointAsync(first,0,false,90);var lineTo=await GlyphScreenPointAsync(first,2,true,90);await NativeInput.Drag(lineFrom,(int)(lineTo.X-lineFrom.X),(int)(lineTo.Y-lineFrom.Y));
         await RunPageCheck("underlineSaved", """

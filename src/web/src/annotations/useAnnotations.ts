@@ -17,7 +17,7 @@ export function useAnnotations(session:DocSession,services:AppServices,scroller:
   const state=useStore(session.store),settings=useStore(appStore,s=>s.settings),gesture=useRef<Gesture|undefined>(undefined),[preview,setPreview]=useState<Annotation>();
   const reanchor=useRef<string|undefined>(undefined);
   const editable=state.access==='edit'&&state.closeState==='open'&&state.saveState!=='error';
-  const style:ToolStyle=state.styles[state.tool]??settings.toolPreferences?.find(p=>p.tool===state.tool)??{color:settings.color,strokeWidth:settings.strokeWidth,opacity:state.tool==='highlight'?.35:1};
+  const style:ToolStyle=state.styles[state.tool]??settings.toolPreferences?.find(p=>p.tool===state.tool)??{color:settings.color,strokeWidth:settings.strokeWidth,opacity:settings.opacity};
   const fail=(e:unknown)=>notice(e instanceof Error?e.message:String(e));
   const cancel=()=>{const id=gesture.current?.pointer;gesture.current=undefined;setPreview(undefined);if(id!==undefined&&scroller.current?.hasPointerCapture(id))scroller.current.releasePointerCapture(id);session.store.setState({toolPhase:state.tool==='select'?'idle':'armed'});};
   useEffect(()=>{const blur=()=>cancel();window.addEventListener('blur',blur);return()=>{window.removeEventListener('blur',blur);gesture.current=undefined;session.store.setState({toolPhase:session.store.getState().tool==='select'?'idle':'armed'});};},[state.tool]);
@@ -55,8 +55,8 @@ export function useAnnotations(session:DocSession,services:AppServices,scroller:
     cancel();session.store.setState({toolPhase:'commit'});void session.execute(mutations).catch(fail).finally(()=>session.store.setState({toolPhase:state.tool==='select'?'idle':'armed'}));return true;
   };
   const annotate=async(selection:Selection|undefined,getText:(page:number,signal:AbortSignal)=>Promise<PageText>,type:'highlight'|'underline')=>{
-    if(!selection||!editable)return;const groupId=crypto.randomUUID(),values:Annotation[]=[];const abort=new AbortController();
-    for(let p=Math.min(selection.anchor.page,selection.focus.page);p<=Math.max(selection.anchor.page,selection.focus.page);p++){const text=await getText(p,abort.signal),range=selectedRange(selection,text);if(!range||text.quality==='unavailable')throw Error('选区文字变化或含不可靠页面，请重新选择');const value=textAnnotation(session.handle.docHash,text,range,type,settings.author,{...style,opacity:type==='highlight'?.35:1},groupId);if(value)values.push(value);if(values.length>200)throw Error('一次最多标注 200 页');}
+    if(!selection||!editable)return;const groupId=crypto.randomUUID(),values:Annotation[]=[];const abort=new AbortController(),textStyle=state.styles[type]??settings.toolPreferences?.find(p=>p.tool===type)??{...style,opacity:type==='highlight'?settings.opacity:1};
+    for(let p=Math.min(selection.anchor.page,selection.focus.page);p<=Math.max(selection.anchor.page,selection.focus.page);p++){const text=await getText(p,abort.signal),range=selectedRange(selection,text);if(!range||text.quality==='unavailable')throw Error('选区文字变化或含不可靠页面，请重新选择');const value=textAnnotation(session.handle.docHash,text,range,type,settings.author,textStyle,groupId);if(value)values.push(value);if(values.length>200)throw Error('一次最多标注 200 页');}
     if(!values.length)return;const target=state.annotations.find(a=>a.id===reanchor.current);const changes:Mutation[]=target?state.annotations.filter(a=>a.id===target.id||target.groupId&&a.groupId===target.groupId).map(a=>({type:'annotation.remove',id:a.id})):[];
     changes.push(...values.map(value=>({type:'annotation.put' as const,value})));await session.execute(changes);session.store.setState({selectedId:values[0].id});reanchor.current=undefined;
   };

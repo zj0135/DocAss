@@ -83,7 +83,7 @@ public sealed partial class MainWindow : Window
             core.Settings.IsStatusBarEnabled = false; core.Settings.IsNonClientRegionSupportEnabled = true;
             core.NavigationStarting += (_, e) => { if (!bridge.TrustedPage(e.Uri, true)) e.Cancel = true; else bridge.Reset(); };
             core.FrameNavigationStarting += (_, e) => e.Cancel = true;
-            core.NewWindowRequested += (_, e) => e.Handled = true;
+            core.NewWindowRequested += (_, e) => {e.Handled=true;if(e.IsUserInitiated&&Uri.TryCreate(e.Uri,UriKind.Absolute,out var uri)&&uri.Scheme is "https" or "http" or "mailto")try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri){UseShellExecute=true});}catch{}};
             core.DownloadStarting += (_, e) => e.Cancel = true;
             core.PermissionRequested += (_, e) => { permissionRequests.Add(e.PermissionKind.ToString()); e.State = CoreWebView2PermissionState.Deny; e.Handled = true; };
             core.ProcessFailed += (_, _) => ShowError("页面进程已退出", "已确认的数据保存在本机，请重新启动应用。");
@@ -165,6 +165,9 @@ public sealed partial class MainWindow : Window
     private void RegisterMethods()
     {
         void Register(string name, Func<JsonElement, Task<object?>> action) => bridge.Register(name, (p, _) => action(p));
+        Register("app.info",p=>{Contract.Fields(p);return Task.FromResult<object?>(new{version=typeof(MainWindow).Assembly.GetName().Version?.ToString(3)??"unknown",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription+" / WebView2 "+web.CoreWebView2.Environment.BrowserVersionString,licenses=Directory.Exists(Path.Combine(AppContext.BaseDirectory,"licenses"))?Directory.GetFiles(Path.Combine(AppContext.BaseDirectory,"licenses")).Select(Path.GetFileName).ToArray():Array.Empty<string>()});});
+        Register("app.openLogs",p=>{Contract.Fields(p);var directory=Path.Combine(Path.GetDirectoryName(dataDirectory)!,"logs");Directory.CreateDirectory(directory);System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(directory){UseShellExecute=true});return Task.FromResult<object?>(null);});
+        Register("app.openLicenses",p=>{Contract.Fields(p);System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.Combine(AppContext.BaseDirectory,"licenses")){UseShellExecute=true});return Task.FromResult<object?>(null);});
         Register("app.bootstrap", async p => { Contract.Fields(p); return new { version = "0.3.0", fixturesEnabled = acceptance != null, capabilities = new { desktop = true, window = true, persistentStorage = true, credentials = true, nativeText = true, ocr = true, llm = true }, loopback = new { origin = loopback.Origin, token = loopback.SessionToken }, settings = await settings.GetAsync(), window = new { maximized = WindowState == WindowState.Maximized }, readOnly = storage.IsReadOnly }; });
         Register("window.minimize", p => { Contract.Fields(p); WindowState = WindowState.Minimized; return Task.FromResult<object?>(null); });
         Register("window.maximize", p => { Contract.Fields(p); WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; return Task.FromResult<object?>(null); });

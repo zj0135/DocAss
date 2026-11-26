@@ -5,6 +5,7 @@ export type Capabilities = { desktop: boolean; window: boolean; persistentStorag
 export type Bootstrap = { version: string; capabilities: Capabilities; settings: Settings; window: { maximized: boolean }; documents?: DocHandle[]; readOnly?: boolean; fixturesEnabled?: boolean; loopback?: { origin: string; token: string } };
 export type DocumentState = { documentRevision: number; annotations: Annotation[]; conversations: Conversation[]; messages: Message[] };
 export interface AppServices {
+  diagnostics:{info():Promise<{version:string;runtime:string;licenses:string[]}>;openLogs():Promise<void>;openLicenses():Promise<void>};
   readonly capabilities: Capabilities;
   bootstrap(): Promise<Bootstrap>;
   documents: {

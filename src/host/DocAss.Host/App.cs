@@ -10,6 +10,8 @@ public static class Program
     {
         if (args.FirstOrDefault() == "--storage-probe") { Verification.StorageProbe.Run(args.Skip(1).ToArray()).GetAwaiter().GetResult(); return; }
         if(args.FirstOrDefault()=="--generate-ocr-samples"&&args.Length==2){Verification.OcrSamples.Create(Path.GetFullPath(args[1]));return;}
+        if(args.FirstOrDefault()=="--verify-external-ocr"&&args.Length==3){Verification.OcrExternalSamples.Run(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]));return;}
+        if(args.FirstOrDefault()=="--verify-provider-smoke"&&args.Length is 3 or 4){Verification.ProviderSmoke.RunAsync(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]),args.Length==4?args[3]:null).GetAwaiter().GetResult();return;}
         var application = new Application();
         var acceptance=Verification.AcceptanceOptions.Parse(args);
         application.DispatcherUnhandledException += (_, e) => {

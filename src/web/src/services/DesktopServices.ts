@@ -6,6 +6,7 @@ import type { OpenResult, NativePage } from '../documents/types';
 import { buildPageText } from '../text/model';
 
 export class DesktopServices implements AppServices {
+  diagnostics:AppServices['diagnostics']={info:()=>this.transport.request('app.info',{}),openLogs:()=>this.transport.request('app.openLogs',{}),openLicenses:()=>this.transport.request('app.openLicenses',{})};
   readonly capabilities: Capabilities = { desktop: true, window: true, persistentStorage: true, credentials: true, nativeText: true, ocr: true, llm: true };
   private transport: Webview2Transport;
   private local?: Bootstrap['loopback'];

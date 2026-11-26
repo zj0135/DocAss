@@ -20,6 +20,12 @@ pnpm test:browser       # 已安装 Edge，Playwright 启动 Vite；artifacts/br
 pnpm verify:desktop     # 真实 WPF/WebView2 验收；会短暂操作本应用窗口，结束恢复鼠标位置
 pnpm verify:llm         # 四协议合成上游、流式工具、选区附件、引用标注与恢复；无需真实 Key
 pnpm verify:ocr:synthetic # 三页合成扫描 PDF：314 字几何、倾斜／竖排复制高亮、搜索与重开
+pnpm fixtures:integration:setup # 锁定真实 PDF/OCR 补充样本，首次需要网络
+pnpm fixtures:integration # 在 OCR 样本之后生成 300/500 页与十标签集成文件
+pnpm verify:agent        # 十标签和 300 页原生/扫描 Agent；可控上游
+pnpm verify:performance  # 500 页 10 分钟阅读/搜索、全进程内存和帧耗时
+pnpm verify:ocr:benchmark # Small CPU 30 次暖态，含缓存写
+pnpm verify:integration  # 串行完整集成入口；门禁限制见第六阶段记录
 pnpm verify:install     # 空目录安装和锁定 NuGet restore
 pnpm run publish        # artifacts/publish/win-x64，自包含应用；manifest.json 校验清单
 ```
@@ -29,6 +35,8 @@ pnpm run publish        # artifacts/publish/win-x64，自包含应用；manifest
 桌面数据位于 `%LocalAppData%\DocAss\data\workspace.db`；最新一致性备份为 `workspace.db.backup`，附件在 `attachments`，文档写锁在 `locks`，不可变文档快照在 `snapshots`，OCR 结果在 `ocr-cache`；WebView2 profile 在相邻的 `webview2`。不要直接复制正在写入的 SQLite 主文件作为备份。损坏数据库通过原生错误页提供明确恢复入口，恢复前显示备份时间和文档版本。绝对路径不进入前端文档对象；PDF 密码仅在已打开文档的内存生命周期内使用，不写入数据库和日志。
 
 普通浏览器可真实打开文件并将最近文件保存在 IndexedDB，精确原生文字服务需要桌面版。PDF.js 的 worker、cMaps、标准字体、wasm 与 ICC 资源随构建部署，不依赖在线 CDN。桌面文件上限为 1 GiB，图片解码限制为 64M 像素 / 单边 32768，动画和多帧图片明确拒绝。
+
+开发浏览器访问 `?fixture=1` 后可主动打开报告/合同固定样本，完整验证真实 PDF 选字、标注、OCR、pi 对话和刷新恢复；OCR/模型输出有明确合成标识，普通非样本文件仍提示桌面能力限制。此合成服务不进入 Release bundle。快捷键遵循设置/编辑器焦点；聊天分隔条、工具颜色/宽度/透明度和侧栏偏好持久保存，窄窗口可折叠面板。
 
 标注工具包括高亮、下划线、便签、文字批注、手绘、矩形和箭头；选择几何标注后可移动或拖动蓝色控制点缩放，文字标注需重新选择原文。每标签保留 200 步撤销历史；标注立即排队保存，失败保留修改并阻止静默关闭。文字批注支持 Ctrl+Enter 确认、Esc 取消，输入法组合期间不提交。数据库 schema 1／2→3 自动备份后升级；源文件变化不会替换已打开快照，迁移待复核项只进入列表。
 
@@ -43,3 +51,5 @@ pnpm run publish        # artifacts/publish/win-x64，自包含应用；manifest
 `verify:desktop` 需要可交互的 Windows 桌面和空闲的 5173 端口，十一个场景串行执行，测试数据隔离在 `artifacts/desktop/<时间>/`。不要与浏览器测试同时运行，桌面 HMR 场景会修改构建标识并操作原生输入；reading／ocr 场景会测试 Windows 剪贴板，annotations 场景在隔离数据目录注入慢写和失败。LLM 场景运行本机合成上游和隔离的假密钥配置。`node scripts/verify-desktop.mjs --skip-build --case=ocrBenchmark` 单独执行 30 次 OCR 暖态全路径基准。显示器移除使用真实 `WM_DISPLAYCHANGE` 消息与越界窗口位置模拟；DPAPI 使用真实 Windows 匿名安全令牌验证身份隔离，覆盖范围见逐项记录。硬件热拔插和另一账户交互登录的整机检查保留到最终部署回归。
 
 实际验收与尚未覆盖项见 [第一阶段记录](docs/validation/phase1.md)、[第二阶段记录](docs/validation/phase2.md)、[第三阶段记录](docs/validation/phase3.md)、[第四阶段记录](docs/validation/phase4.md)、[第五阶段记录](docs/validation/phase5.md) 和 [任务清单](docs/tasks.md)。
+
+A51–A58 本轮结果见 [第六阶段记录](docs/validation/phase6.md)：A51–A54 和 A57 本机自动化通过；500 页首屏 974 ms、滚动 P95 7.1 ms、10 分钟全进程私有内存峰值 872 MiB。A55 人工叠加审查、A56 真实清晰中文扫描/人工倾斜竖排字框、A58 真实提供方请求仍未完成。没有把补充照片、合成上游或代理目视当作这些门禁已通过。

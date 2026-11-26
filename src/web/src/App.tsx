@@ -13,6 +13,8 @@ import { DocumentPool } from './documents/DocumentPool';
 import { DocumentReader } from './documents/DocumentReader';
 import {DocumentText} from './ocr/DocumentText';
 import {ChatSession} from './llm/ChatSession';
+import {resourceSnapshot} from './documents/resources';
+import {editingTarget,modalOpen} from './ui/keyboard';
 import type { OpenResult,RecentDocument } from './documents/types';
 
 const Prototype = lazy(()=>import('./mock/PrototypeApp'));
@@ -27,6 +29,7 @@ function Workspace() {
   const [opening,setOpening]=useState(false),[recent,setRecent]=useState<RecentDocument[]>([]),[passwordRequest,setPasswordRequest]=useState<{incorrect:boolean;resolve:(value:string)=>void;reject:(error:Error)=>void}>(),[password,setPassword]=useState('');
   const prompt=useCallback((incorrect:boolean)=>new Promise<string>((resolve,reject)=>{setPassword('');setPasswordRequest({incorrect,resolve,reject});}),[]);
   const state = useStore(appStore), [settingsOpen,setSettingsOpen] = useState(false), [maximized,setMaximized] = useState(false), [fixturesEnabled,setFixturesEnabled] = useState(!services.capabilities.desktop);
+  useEffect(()=>{if(!fixturesEnabled||!services.capabilities.desktop&&new URLSearchParams(location.search).get('fixture')!=='1')return;Object.defineProperty(window,'__docassResources',{configurable:true,get:()=>({...resourceSnapshot(),activeDocuments:pool.activeCount})});return()=>{Reflect.deleteProperty(window,'__docassResources');};},[pool,fixturesEnabled]);
   const report = (error: unknown) => appStore.setState({error:error instanceof Error?error.message:String(error)});
   useEffect(()=>{
     let active = true;
@@ -64,6 +67,7 @@ function Workspace() {
     if(closeBusy.current||windowClosing.current)return;
     try {
       const handle=await services.documents.openFixture(name);let session=sessions.get(handle.docId);
+      if(handle.byteLength>0){await adopt({status:'ready',openId:handle.docId,fileName:handle.fileName,handle,pageCount:1},new AbortController().signal);return;}
       if(windowClosing.current){if(!session)await services.documents.close(handle.docId);return;}
       if(!session){session=new DocSession(handle,services);await session.restore();if(windowClosing.current){await services.documents.close(handle.docId);return;}sessions.set(handle.docId,session);}
       appStore.setState(current=>({tabs:current.tabs.some(t=>t.docId===handle.docId)?current.tabs:[...current.tabs,handle],activeDocId:handle.docId,error:undefined}));
@@ -80,6 +84,7 @@ function Workspace() {
     }catch(e){setClosePrompt({ids,requestId,error:e instanceof Error?e.message:String(e)});}finally{closeBusy.current=false;setClosingText('');const next=queuedWindowClose.current;queuedWindowClose.current=undefined;if(next)void finishClose([...sessions.keys()],next);}
   };
   const closeTab=(id:string)=>void finishClose([id]);
+  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.defaultPrevented||e.isComposing||modalOpen()||editingTarget(e.target))return;if(!(e.ctrlKey||e.metaKey))return;const k=e.key.toLowerCase();if(k==='o'){e.preventDefault();choose();}else if(k==='w'&&state.activeDocId){e.preventDefault();closeTab(state.activeDocId);}else if(k==='tab'&&state.tabs.length){e.preventDefault();const index=state.tabs.findIndex(t=>t.docId===state.activeDocId);appStore.setState({activeDocId:state.tabs[(index+(e.shiftKey?-1:1)+state.tabs.length)%state.tabs.length].docId});}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[state.activeDocId,state.tabs,settingsOpen,opening]);
   useEffect(()=>services.window.onClosing(requestId=>void finishClose([...sessions.keys()],requestId)),[services,sessions,pool,passwordRequest]);
   useEffect(()=>services.window.onCloseCancelled(()=>{windowClosing.current=false;queuedWindowClose.current=undefined;for(const session of sessions.values())session.cancelClose();setClosePrompt(undefined);setClosingText('');}),[services,sessions]);
   useEffect(()=>{const before=(e:BeforeUnloadEvent)=>{if([...sessions.values()].some(s=>s.store.getState().saveState!=='saved'||s.store.getState().editor)){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',before);return()=>window.removeEventListener('beforeunload',before);},[sessions]);
@@ -100,7 +105,7 @@ function Workspace() {
       {recent.length>0&&<div className="w-96 max-h-52 overflow-auto"><h2 className="text-sm font-medium mb-2">最近打开</h2>{recent.map(item=><button key={item.docHash} className="block w-full text-left text-sm py-2 px-3 hover:bg-white rounded" onClick={()=>void open(undefined,item.docHash)}>{item.fileName}</button>)}</div>}
     </main>}
     {fixturesEnabled&&<div className="flex gap-4 justify-center p-3 border-t border-slate-200 text-xs text-slate-600"><span>文档示例</span><button onClick={()=>void openFixture('report')}>打开报告示例</button><button onClick={()=>void openFixture('contract')}>打开合同示例</button></div>}
-    <footer className="px-4 py-2 border-t border-slate-200 text-xs text-slate-500">{state.ready?(services.capabilities.desktop?'桌面模式':'浏览器模式 · 示例内容保存在此浏览器中'):'正在连接…'}</footer>
+    <footer className="px-4 py-2 border-t border-slate-200 text-xs text-slate-500">{state.ready?(services.capabilities.desktop?'桌面模式':new URLSearchParams(location.search).get('fixture')==='1'?'浏览器固定样本 · OCR 与模型回复为合成验收数据':'浏览器模式 · 文件与修改保存在此浏览器中'):'正在连接…'}</footer>
     {settingsOpen&&<FoundationSettingsDialog services={services} initial={state.settings} onSaved={settings=>appStore.setState({settings})} onClose={()=>setSettingsOpen(false)}/>}
     {passwordRequest&&<div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center"><form role="dialog" aria-label="PDF 密码" className="bg-white rounded-xl shadow-xl p-6 w-96" onSubmit={e=>{e.preventDefault();passwordRequest.resolve(password);setPassword('');setPasswordRequest(undefined);}}><h2 className="font-semibold mb-3">输入 PDF 密码</h2>{passwordRequest.incorrect&&<p role="alert" className="text-red-600 text-sm mb-2">密码错误，请重试</p>}<input autoFocus type="password" autoComplete="off" aria-label="文档密码" className="settings-input w-full" value={password} onChange={e=>setPassword(e.target.value)}/><div className="flex justify-end gap-4 mt-4"><button type="button" onClick={()=>{passwordRequest.reject(new DOMException('已取消','AbortError'));setPassword('');setPasswordRequest(undefined);}}>取消</button><button type="submit" className="text-blue-600">解锁</button></div></form></div>}
   </div>;

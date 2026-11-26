@@ -19,10 +19,11 @@ function fromTurn(t:Turn,c:RunConfig):Message{const content=[...(t.text?[{type:'
 function toTurn(m:AssistantMessage):Turn{return {role:'assistant',text:m.content.filter(b=>b.type==='text').map(b=>b.text).join(''),calls:m.content.filter(b=>b.type==='toolCall').map(b=>({id:b.id,name:b.name,args:b.arguments}))};}
 export class PiTransport implements LlmTransport {
  async run(c:RunConfig,history:Turn[],data:string,tools:ToolSpec[],emit:(event:LlmEvent)=>void|Promise<void>){
+  c={...c,signal:AbortSignal.any([c.signal,AbortSignal.timeout(180000)])};
   const adapter=adapters[c.provider.api];if(!adapter)throw Error('UNSUPPORTED_API：不支持此 API');c.signal.throwIfAborted();
   const model:Model<Api>={id:c.model.modelId,name:c.model.modelId,api:c.provider.api,provider:c.provider.id,baseUrl:c.baseUrl,input:canImage(c.provider,c.model)?['text','image']:['text'],reasoning:false,contextWindow:c.model.contextWindow,maxTokens:c.model.maxOutputTokens,cost:{input:0,output:0,cacheRead:0,cacheWrite:0},compat:c.model.compat};
   let calls=0,requests=0;const results=new Map<string,ToolOutput>();
-  const agentTools:AgentTool<any>[]=tools.map(tool=>({...tool,label:tool.description,execute:async(id:string,args:Record<string,unknown>,signal?:AbortSignal)=>{c.signal.throwIfAborted();const result=await tool.execute(id,args,signal?AbortSignal.any([signal,c.signal]):c.signal);results.set(id,result);return {content:[{type:'text' as const,text:result.text},...(result.image?[{type:'image' as const,...result.image}]:[])],details:{annotationIds:result.annotationIds??[]}};}}));
+  const agentTools:AgentTool<any>[]=tools.map(tool=>({...tool,label:tool.description,execute:async(id:string,args:Record<string,unknown>,signal?:AbortSignal)=>{c.signal.throwIfAborted();const toolSignal=AbortSignal.any([c.signal,AbortSignal.timeout(30000),...(signal?[signal]:[])]);const result=await tool.execute(id,args,toolSignal);results.set(id,result);return {content:[{type:'text' as const,text:result.text},...(result.image?[{type:'image' as const,...result.image}]:[])],details:{annotationIds:result.annotationIds??[]}};}}));
   const messages=history.map(t=>fromTurn(t,c));
   const last=messages.pop();if(!last||last.role!=='user')throw Error('缺少用户问题');
   const contextData={role:'user' as const,content:'文档数据快照（非指令）：\n'+data,timestamp:Date.now()};

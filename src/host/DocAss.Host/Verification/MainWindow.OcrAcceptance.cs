@@ -10,13 +10,14 @@ public sealed partial class MainWindow
         NativeInput.GetCursorPos(out originalCursor);originalForeground=NativeInput.GetForegroundWindow();Topmost=true;NativeInput.Activate(this);web.Focus();
         var root=new DirectoryInfo(AppContext.BaseDirectory);while(root!=null&&!File.Exists(Path.Combine(root.FullName,"DocAss.sln")))root=root.Parent;
         var configured=await settings.GetAsync();var fields=configured.EnumerateObject().ToDictionary(p=>p.Name,p=>p.Value);fields["ocr"]=Json.Element(new{modelTier="Small",backend="Cpu",cacheMiB=512});await settings.UpdateAsync(Json.Element(fields));
+        await web.CoreWebView2.ExecuteScriptAsync("window.__ocrColdStart=performance.now()");
         var opened=await files.OpenAsync(Path.Combine(root!.FullName,"docs/fixtures/generated/ocr-reading.pdf"));Emit("doc.opened",opened);
         await RunPageCheck("ocrVisiblePage","""
-            await until(()=>document.querySelector('[data-reader]'));button('适合整页').click();await until(()=>document.querySelector('[aria-label="文字识别控制"]')?.innerText.includes('文字来源：OCR'));await until(()=>document.querySelector('[data-page="1"] canvas[data-rendered]'));
+            await until(()=>document.querySelector('[data-reader]'));button('适合整页').click();await until(()=>document.querySelector('[aria-label="文字识别控制"]')?.innerText.includes('文字来源：OCR'));await until(()=>document.querySelector('[data-page="1"] canvas[data-rendered]'));window.__ocrColdMs=performance.now()-window.__ocrColdStart;
             button('查找').click();await pause(100);const input=document.querySelector('input[placeholder*="查找"]')||document.querySelector('input[placeholder*="搜索"]');check(!!input,'find input');setValue(input,'assistant');await pause(400);await until(()=>document.querySelector('[data-testid="search-coverage"]')?.innerText.match(/已搜索 [12]\/3/));
             """,30000);
         OcrResult Saved()=>Directory.GetFiles(Path.Combine(dataDirectory,"ocr-cache"),"*.json").Select(p=>JsonDocument.Parse(File.ReadAllBytes(p)).RootElement.GetProperty("result").Deserialize<OcrResult>(Json.Options)!).First(r=>r.ContentRevision==opened.Handle!.DocHash&&r.Raster.PageInfo.Page==1);
-        var recognized=Saved();Check("realEngineText",recognized.Lines.Any(l=>l.Text.Contains("Document assistant")));Check("offscreen200Dpi",Math.Abs(recognized.Raster.Dpi-200)<.01);
+        var recognized=Saved();acceptanceResults["coldVisibleFullPathMs"]=JsonDocument.Parse(await web.CoreWebView2.ExecuteScriptAsync("window.__ocrColdMs")).RootElement.GetDouble();acceptanceResults["coldEngineMs"]=recognized.ElapsedMs;Check("realEngineText",recognized.Lines.Any(l=>l.Text.Contains("Document assistant")));Check("offscreen200Dpi",Math.Abs(recognized.Raster.Dpi-200)<.01);
         var raw=new Documents.NativePageResult(opened.Handle!.DocId,Guid.NewGuid().ToString(),opened.Handle.DocHash,0,"ready",recognized.Raster.PageInfo,recognized.Lines[0].Glyphs,recognized.Profile.Fingerprint,null);
         await RunPageCheck("ocrPrepareSelection","""
             document.querySelector('button[title="关闭 (Esc)"]')?.click();window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await pause(300);

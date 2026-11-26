@@ -8,6 +8,7 @@ type Props={document:PagedDocument;info:PageInfo;scale:number;rotation:number;dp
 export function PageView({document,info,scale,rotation,dpr,priority,selection=[],matches=[],current=[],thumbnail=false,onRecover,annotations=[],selectedId}:Props){
   const host=useRef<HTMLDivElement>(null),overlay=useRef<HTMLCanvasElement>(null),visible=useRef<HTMLCanvasElement|null>(null),[error,setError]=useState(''),[revision,setRevision]=useState(0);
   const view=viewport(info,scale,rotation);
+  const overlayKey=JSON.stringify([selection,matches,current,annotations,selectedId]);
   useEffect(()=>{
     const controller=new AbortController(),budget=thumbnail?thumbnailCanvases:pageCanvases;
     let canvas:HTMLCanvasElement|null=null;
@@ -28,14 +29,16 @@ export function PageView({document,info,scale,rotation,dpr,priority,selection=[]
   useEffect(()=>()=>{if(visible.current)(thumbnail?thumbnailCanvases:pageCanvases).release(visible.current);},[thumbnail]);
   useEffect(()=>{
     const canvas=overlay.current;if(!canvas||thumbnail)return;
+    if(!selection.length&&!matches.length&&!current.length&&!annotations.length){pageCanvases.release(canvas);return;}
     const output=backingScale(view.width,view.height,dpr,Math.min(64*1024*1024,pageCanvases.available+(canvas.width*canvas.height*4)));
     if(!pageCanvases.allocate(canvas,Math.max(1,Math.floor(view.width*output)),Math.max(1,Math.floor(view.height*output))))return;
     const ctx=canvas.getContext('2d')!;ctx.setTransform(output,0,0,output,0,0);
+    ctx.clearRect(0,0,view.width,view.height);
     const paint=(quads:Quad[],color:string)=>{ctx.fillStyle=color;for(const q of quads){const v=quad(view.transform,q);ctx.beginPath();ctx.moveTo(v[0],v[1]);for(let i=2;i<8;i+=2)ctx.lineTo(v[i],v[i+1]);ctx.closePath();ctx.fill();}};
     paint(matches,'rgba(250,204,21,.35)');paint(current,'rgba(249,115,22,.6)');paint(selection,'rgba(59,130,246,.32)');
     paintAnnotations(ctx,annotations,view.transform,selectedId);
     return ()=>pageCanvases.release(canvas);
-  },[info,scale,rotation,dpr,selection,matches,current,revision,thumbnail,annotations,selectedId]);
+  },[info,scale,rotation,dpr,overlayKey,revision,thumbnail]);
   return <div data-page={info.page} style={{width:view.width,height:view.height,position:'relative',background:'white',boxShadow:'0 2px 8px #0002'}}>
     <div ref={host} style={{width:'100%',height:'100%',pointerEvents:'none'}}/>
     {!thumbnail&&<canvas ref={overlay} data-overlay={info.page} data-current-count={current.length} style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}/>}

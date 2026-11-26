@@ -8,12 +8,12 @@ async function drag(page:Page,tool:string,from=[.25,.35],to=[.65,.55]){await pag
 async function annotations(page:Page){await expect(page.locator('[data-reader]')).toBeVisible();return page.evaluate(async()=>{const {appStore}=await import('/src/state/appStore.ts'),{BrowserServices}=await import('/src/services/BrowserServices.ts'),s=new BrowserServices();try{const handle=appStore.getState().tabs[0],opened=await s.documents.openRecent(handle.docHash);return (await s.persistence.read(opened.handle!.docId)).annotations;}finally{s.dispose();}});}
 test('real rectangle, arrow and ink persist; undo/redo, move and eraser form whole commands',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await open(page);await drag(page,'矩形');await expect.poll(async()=>(await annotations(page)).length).toBe(1);let values=await annotations(page);expect(values[0].type).toBe('rect');const original=values[0].rect;
- await page.getByRole('button',{name:'撤销',exact:true}).click();await expect.poll(async()=>(await annotations(page)).length).toBe(0);await page.getByRole('button',{name:'重做',exact:true}).click();await expect.poll(async()=>(await annotations(page)).length).toBe(1);
+ await page.getByTestId('reader-scroll').focus();await page.keyboard.press('Control+z');await expect.poll(async()=>(await annotations(page)).length).toBe(0);await page.keyboard.press('Control+y');await expect.poll(async()=>(await annotations(page)).length).toBe(1);
  await drag(page,'选择',[.4,.4],[.45,.45]);values=await annotations(page);expect(values[0].rect).not.toEqual(original);await page.getByRole('button',{name:'撤销',exact:true}).click();await expect.poll(async()=>(await annotations(page))[0].rect).toEqual(original);
  await drag(page,'箭头',[.15,.65],[.6,.75]);await drag(page,'手绘',[.2,.8],[.7,.85]);await expect.poll(async()=>(await annotations(page)).length).toBe(3);
  await drag(page,'橡皮擦',[.4,.4],[.45,.45]);await expect.poll(async()=>(await annotations(page)).length).toBe(2);await page.getByRole('button',{name:'撤销',exact:true}).click();await expect.poll(async()=>(await annotations(page)).length).toBe(3);
  await page.getByRole('button',{name:'标注',exact:true}).click();await expect(page.locator('[data-annotation-id]')).toHaveCount(3);await page.screenshot({path:'artifacts/screenshots/annotations-shapes.png'});
- await page.reload();await page.getByRole('button',{name:'navigation.pdf',exact:true}).click();await page.getByRole('button',{name:'标注',exact:true}).click();await expect(page.locator('[data-annotation-id]')).toHaveCount(3);expect(errors).toEqual([]);
+ await page.reload();await page.getByRole('button',{name:'navigation.pdf',exact:true}).click();await expect(page.locator('[data-annotation-id]')).toHaveCount(3);await page.locator('[data-annotation-id]').first().click();await page.getByTestId('reader-scroll').focus();await page.keyboard.press('Delete');await expect.poll(async()=>(await annotations(page)).length).toBe(2);await page.keyboard.press('Control+z');await expect.poll(async()=>(await annotations(page)).length).toBe(3);expect(errors).toEqual([]);
 });
 test('freetext IME never commits early, cancel leaves no annotation, note draft survives tab switching',async({page})=>{
  await open(page);await page.getByRole('button',{name:'文字批注工具',exact:true}).click();let box=(await page.locator('[data-page="1"]').boundingBox())!;await page.mouse.click(box.x+box.width*.3,box.y+box.height*.4);
@@ -37,7 +37,7 @@ test('geometry resizing and properties are reversible; tool width survives reloa
 });
 test('window close follows a saving tab close and rejects late document opens until cancelled',async({page})=>{
  // Install a controlled window boundary before React subscribes; persistence still uses real IndexedDB.
- await page.route('**/src/main.tsx',async route=>{const response=await route.fetch();await route.fulfill({response,body:`
+ await page.route(/\/src\/main\.tsx(?:\?|$)/,async route=>{const response=await route.fetch();await route.fulfill({response,body:`
  import {createServices as acceptanceServices} from '/src/services/index.ts';
  const service=acceptanceServices();
  const harness=window.closeAcceptance={request:()=>{},cancel:()=>{},ready:[],closed:[],notifyOpen:()=>{},hold:true,started:false};

@@ -7,6 +7,9 @@
 | Chars74K 图像和人工标注 | [作者发布页](https://teodecampos.github.io/chars74k/)、[Surrey 原始发布页](https://info-ee.surrey.ac.uk/CVSSP/demos/chars74k/) | 发布页要求注明来源，并在相关出版物引用论文；原始数据不加入本仓库 |
 | pdf-lib / fontkit | MIT；精确版本见根 pnpm-lock.yaml | 生成测试 PDF 和字体轮廓真值 |
 | PDF.js JBIG2 / JPEG2000 Talos 样本 | [Mozilla PDF.js 测试资源](https://github.com/mozilla/pdf.js/tree/0b093fb11270c29c1894902810cd9aef2e9a9f3c/test/pdfs)，Apache-2.0；提交与 SHA-256 见 resources.json | 下载到本地，测试真实 wasm 解码；不随源码仓库分发 |
+| Tesseract phototest 图像/文字 | [tesseract-ocr/test](https://github.com/tesseract-ocr/test)，Apache-2.0；Git blob 固定在 acquire-integration.mjs | 英文真实 OCR 补充样本及上游转录，不分发原图 |
+| PaddleOCR 11.jpg / 12.jpg | [PaddleOCR release/2.7 样本](https://github.com/PaddlePaddle/PaddleOCR/tree/release/2.7/doc/imgs)，仓库 Apache-2.0；图片可能包含产品商标 | 仅本地测试，独立视觉转录；产品/户外照片不算清晰中文扫描页，不分发原图 |
+| NIST IR 8286 历史出版物 | [官方 PDF](https://nvlpubs.nist.gov/nistpubs/ir/2020/NIST.IR.8286.pdf)、[NIST 出版物使用条款](https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications) | 用于真实 PDF 原生提取。75 页包括撤回说明，不作为当前安全建议，不随源码分发；固定 SHA-256 见 acquire-integration.mjs |
 
 Chars74K 引用：T. E. de Campos, B. R. Babu, M. Varma. *Character recognition in natural images*. VISAPP, Lisbon, 2009。作者页说明数据由志愿者标注，完整图像归档含字符坐标、边界多边形及标签。这里导入已有人工四边形，未声称用户或本次自动化重新进行了人工审查。采用的图像是 Kannada 字符表，不能替代后续 G5 所需中文/英文质量与倾斜/竖排覆盖。
 

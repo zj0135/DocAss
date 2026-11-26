@@ -16,6 +16,10 @@ OCR 正式样本另外运行 `pnpm build:host`、`pnpm fixtures:ocr` 生成。`o
 
 完整原始归档很大，但所需图片和标注成员都完整位于其前 4 MiB。因此下载器只获取锁定的字节前缀，导入器核对前缀 SHA-256、tar 成员完整长度及路径白名单；生成真值额外记录图片和标注各自的 SHA-256。原始文件不随源码仓库分发，使用须遵循 [来源与许可](LICENSES.md)。原有 `ocr-grid` 120 字仍是自动生成的设计坐标，不计入人工标注数量。
 
+A51–A58 扩展资源使用 `pnpm fixtures:integration:setup` 下载，Git blob / SHA-256 固定于 `acquire-integration.mjs`。`pnpm fixtures:integration` 在基础 OCR 图像生成后构造含文字、扫描图与图形的 300/500 页 PDF、300 页纯扫描 PDF 和十份独立标签文档，清单为 `generated/integration-manifest.json`。浏览器 `pnpm dev` 后访问 `?fixture=1` 可用固定几何/OCR/SSE 验证真实阅读器与 pi；此合成服务只动态载入开发构建。
+
+`ocr-real-transcription.json` 的中文文本由自动代理依据原图独立视觉转录，不是人工字符框，也不是待测 OCR 输出。不得据此宣称 G5 的清晰中文扫描、人工倾斜/竖排几何门禁完成。英文使用 Tesseract 上游 phototest.txt；三档补充报告命令为 `src/host/DocAss.Host/bin/Release/net11.0-windows/win-x64/DocAss.Host.exe --verify-external-ocr C:\Git\DocAss C:\Git\DocAss\artifacts\integration-ocr`，路径按实际检出目录替换。
+
 `node docs/fixtures/mock-upstream.mjs` 启动随机端口合成 HTTP 上游。正式宿主的合成源每 250 ms 输出一段，共四段；宿主测试还通过真实 TCP/HTTP 上游检查取消后的连接断开。
 
 `src/shared/sdk-header-fixtures.json` 记录 OpenAI 7.59.0、Anthropic SDK 0.129.0、Google GenAI 2.32.0 的实际请求头和入口文件摘要，预检测试直接读取该固定样例。需要重录时，在临时目录安装这些精确版本，运行 `node docs/fixtures/capture-sdk-headers.mjs <临时目录/node_modules>`。录制器替换 fetch，不访问提供方，不记录密钥值；正式应用不依赖该临时目录。

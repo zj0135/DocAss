@@ -3,7 +3,7 @@ import type {Page} from '@playwright/test';
 import path from 'node:path';
 declare global {interface Window {ocrAcceptance:{done:number[];starts:number[];cancelled:string[];generation:number};}}
 async function fixture(page:Page){
- await page.route('**/src/main.tsx',async route=>{const response=await route.fetch();await route.fulfill({response,body:`
+ await page.route(/\/src\/main\.tsx(?:\?|$)/,async route=>{const response=await route.fetch();await route.fulfill({response,body:`
  import {createServices as ocrServices} from '/src/services/index.ts';
  const service=ocrServices(),h=window.ocrAcceptance={done:[],starts:[],cancelled:[],generation:0};service.capabilities.ocr=true;service.capabilities.nativeText=true;
  const hash='a'.repeat(64),profile={fingerprint:hash,modelHash:hash,modelTier:'Small',backend:'Cpu',engineVersion:'fixture',preprocessing:'fixture'};
@@ -28,4 +28,7 @@ test('cancel updates immediately and late OCR never fills the cancelled selectio
  await fixture(page);await page.getByRole('button',{name:'取消识别等待',exact:true}).click();await expect(page.getByText('已取消等待',{exact:true})).toBeVisible({timeout:100});await page.evaluate(()=>window.ocrAcceptance.done.push(1));
  await page.getByRole('button',{name:'查找',exact:true}).click();await page.getByPlaceholder('在文档中查找...').fill('assistant');await expect(page.getByTestId('search-coverage')).toContainText('已搜索 0/3');
  await page.getByRole('button',{name:'重新识别本页',exact:true}).click();await expect(page.getByTestId('search-coverage')).toContainText('已搜索 1/3');expect(await page.evaluate(()=>window.ocrAcceptance.generation)).toBeGreaterThan(1);
+});
+test('closing during OCR discards late completion and reopens a fresh usable reader',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await fixture(page);await page.getByTitle('关闭标签页 (Ctrl+W)').click();await expect(page.locator('[data-reader]')).toHaveCount(0);await expect.poll(()=>page.evaluate(()=>window.ocrAcceptance.cancelled.length)).toBeGreaterThan(0);await page.evaluate(()=>window.ocrAcceptance.done.push(1));await page.waitForTimeout(250);await expect(page.locator('[data-reader]')).toHaveCount(0);await page.getByRole('button',{name:'ocr-reading.pdf',exact:true}).click();await expect(page.getByLabel('文字识别控制')).toContainText('文字来源：OCR');expect(errors).toEqual([]);
 });

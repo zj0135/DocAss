@@ -14,7 +14,7 @@ test('offscreen region uses original PDF pixels across viewer zoom and rotation 
 });
 test('live multi-document runs remain bound, third queues and cancellation does not leak late output',async({page})=>{
  const stream=events('openai-completions','bound document reply').join('');
- await page.route('**/src/main.tsx',async route=>{const response=await route.fetch();await route.fulfill({response,body:`
+ await page.route(/\/src\/main\.tsx(?:\?|$)/,async route=>{const response=await route.fetch();await route.fulfill({response,body:`
  import {createServices as llmServices} from '/src/services/index.ts';
  const service=llmServices(),audit=window.llmAcceptance={started:[],cancelled:[],snapshots:[]};service.capabilities.llm=true;
  const p={id:'11111111-1111-1111-1111-111111111111',name:'fixture',api:'openai-completions',baseUrl:'http://127.0.0.1:4321',isDefault:true,imageAllowed:false,hasKey:false,models:[{modelId:'fixture',input:['text'],contextWindow:32768,maxOutputTokens:128}]};await service.providers.save(p);
