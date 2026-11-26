@@ -1486,6 +1486,99 @@
         "window"
       ],
       "additionalProperties": false
+    },
+    "NativePage": {
+      "type": "object",
+      "properties": {
+        "docId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "contentRevision": {
+          "$ref": "#/$defs/Hash"
+        },
+        "pageGeneration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "unreliable",
+            "failed"
+          ]
+        },
+        "pageInfo": {
+          "$ref": "#/$defs/PageInfo"
+        },
+        "glyphs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Glyph"
+          },
+          "minItems": 0,
+          "maxItems": 25000
+        },
+        "profileFingerprint": {
+          "$ref": "#/$defs/Hash"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 1000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NativeSpace"
+          },
+          "minItems": 0,
+          "maxItems": 25000
+        }
+      },
+      "required": [
+        "docId",
+        "jobId",
+        "contentRevision",
+        "pageGeneration",
+        "status",
+        "pageInfo",
+        "glyphs",
+        "profileFingerprint"
+      ],
+      "additionalProperties": false
+    },
+    "NativeSpace": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "baseline": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -1000000000,
+            "maximum": 1000000000
+          },
+          "maxItems": 4,
+          "minItems": 4
+        }
+      },
+      "required": [
+        "text",
+        "baseline"
+      ],
+      "additionalProperties": false
     }
   }
 }

@@ -99,14 +99,14 @@ export const FindBar: React.FC<FindBarProps> = ({
             <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
             <span>还有 {unrecognizedPages} 页尚未识别</span>
           </div>
-          <button
+          {onRecognizeAll&&<button
             onClick={handleRecognizeClick}
             disabled={isRecognizing}
             className="text-blue-600 hover:text-blue-700 font-medium px-2 py-0.5 rounded hover:bg-blue-50 transition-colors flex items-center space-x-1"
           >
             {isRecognizing && <Loader2 className="w-3 h-3 animate-spin" />}
             <span>{isRecognizing ? '正在识别...' : '全部识别'}</span>
-          </button>
+          </button>}
         </div>
       )}
     </div>

@@ -29,3 +29,5 @@ export declare const Request: (value: unknown) => boolean;
 export declare const Response: (value: unknown) => boolean;
 export declare const Event: (value: unknown) => boolean;
 export declare const Settings: (value: unknown) => boolean;
+export declare const NativePage: (value: unknown) => boolean;
+export declare const NativeSpace: (value: unknown) => boolean;

@@ -1,4 +1,5 @@
 node_modules/
+src/web/public/pdfjs/
 **/bin/
 **/obj/
 **/dist/

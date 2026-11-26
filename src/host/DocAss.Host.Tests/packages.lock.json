@@ -161,7 +161,8 @@
         "type": "Project",
         "dependencies": {
           "Microsoft.Data.Sqlite": "[11.0.0, )",
-          "Microsoft.Web.WebView2": "[1.0.4314.35, )"
+          "Microsoft.Web.WebView2": "[1.0.4314.35, )",
+          "PdfPig": "[0.1.16, )"
         }
       }
     }

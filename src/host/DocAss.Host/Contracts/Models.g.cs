@@ -227,3 +227,23 @@ public sealed record Settings
     public double Opacity { get; init; } = default!;
     public JsonElement Window { get; init; } = default!;
 }
+public sealed record NativePage
+{
+    public string DocId { get; init; } = default!;
+    public string JobId { get; init; } = default!;
+    public string ContentRevision { get; init; } = default!;
+    public long PageGeneration { get; init; } = default!;
+    public string Status { get; init; } = default!;
+    public PageInfo PageInfo { get; init; } = default!;
+    public Glyph[] Glyphs { get; init; } = default!;
+    public string ProfileFingerprint { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? Reason { get; init; } = default!;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NativeSpace[]? Spaces { get; init; } = default!;
+}
+public sealed record NativeSpace
+{
+    public string Text { get; init; } = default!;
+    public double[] Baseline { get; init; } = default!;
+}

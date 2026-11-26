@@ -28,6 +28,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   const [isEditingPage, setIsEditingPage] = useState(false);
   const [pageInput, setPageInput] = useState('');
+  const [pageError,setPageError]=useState('');
 
   if (!activeTab) {
     return (
@@ -40,11 +41,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
   const handlePageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const pageNum = parseInt(pageInput, 10);
-    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= activeTab.pageCount) {
+    const pageNum = Number(pageInput);
+    if (/^\d+$/.test(pageInput) && Number.isInteger(pageNum) && pageNum >= 1 && pageNum <= activeTab.pageCount) {
       onPageChange(pageNum);
+      setPageError('');setIsEditingPage(false);
+    } else {
+      setPageError(`请输入 1–${activeTab.pageCount} 之间的整数`);
     }
-    setIsEditingPage(false);
   };
 
   const getTextSourceLabel = (src: 'native' | 'ocr' | 'hybrid') => {
@@ -66,6 +69,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           <form onSubmit={handlePageSubmit} className="flex items-center">
             <span className="text-slate-500 mr-1">第</span>
             <input
+              aria-label="页码"
+              aria-invalid={!!pageError}
               type="text"
               value={pageInput}
               onChange={(e) => setPageInput(e.target.value)}
@@ -74,6 +79,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               className="w-10 text-center text-[12px] px-1 py-0.5 border border-blue-500 rounded bg-blue-50/50 font-mono text-slate-800 focus:outline-hidden"
             />
             <span className="text-slate-500 ml-1">/ {activeTab.pageCount} 页</span>
+            {pageError&&<span role="alert" className="ml-2 text-red-600">{pageError}</span>}
           </form>
         ) : (
           <button

@@ -329,6 +329,56 @@
     }
   },
   {
+    "name": "valid-NativePage",
+    "schema": "NativePage",
+    "valid": true,
+    "value": {
+      "docId": "11111111-1111-4111-8111-111111111111",
+      "jobId": "11111111-1111-4111-8111-111111111111",
+      "contentRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "pageGeneration": 0,
+      "status": "ready",
+      "pageInfo": {
+        "page": 1,
+        "pageBox": [
+          0,
+          0,
+          100,
+          100
+        ],
+        "rotate": 90,
+        "userUnit": 2,
+        "width": 100,
+        "height": 100
+      },
+      "glyphs": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "😀",
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "baseline": [
+            0,
+            0,
+            10,
+            0
+          ],
+          "source": "native"
+        }
+      ],
+      "profileFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reason": null
+    }
+  },
+  {
     "name": "unknown-version",
     "schema": "Request",
     "valid": false,
@@ -761,5 +811,155 @@
       0
     ],
     "valid": false
+  },
+  {
+    "name": "native-status-invalid",
+    "schema": "NativePage",
+    "valid": false,
+    "value": {
+      "docId": "11111111-1111-4111-8111-111111111111",
+      "jobId": "11111111-1111-4111-8111-111111111111",
+      "contentRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "pageGeneration": 0,
+      "status": "verified",
+      "pageInfo": {
+        "page": 1,
+        "pageBox": [
+          0,
+          0,
+          100,
+          100
+        ],
+        "rotate": 90,
+        "userUnit": 2,
+        "width": 100,
+        "height": 100
+      },
+      "glyphs": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "😀",
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "baseline": [
+            0,
+            0,
+            10,
+            0
+          ],
+          "source": "native"
+        }
+      ],
+      "profileFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reason": null
+    }
+  },
+  {
+    "name": "native-job-path",
+    "schema": "NativePage",
+    "valid": false,
+    "value": {
+      "docId": "11111111-1111-4111-8111-111111111111",
+      "jobId": "../file",
+      "contentRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "pageGeneration": 0,
+      "status": "ready",
+      "pageInfo": {
+        "page": 1,
+        "pageBox": [
+          0,
+          0,
+          100,
+          100
+        ],
+        "rotate": 90,
+        "userUnit": 2,
+        "width": 100,
+        "height": 100
+      },
+      "glyphs": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "😀",
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "baseline": [
+            0,
+            0,
+            10,
+            0
+          ],
+          "source": "native"
+        }
+      ],
+      "profileFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reason": null
+    }
+  },
+  {
+    "name": "native-negative-generation",
+    "schema": "NativePage",
+    "valid": false,
+    "value": {
+      "docId": "11111111-1111-4111-8111-111111111111",
+      "jobId": "11111111-1111-4111-8111-111111111111",
+      "contentRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "pageGeneration": -1,
+      "status": "ready",
+      "pageInfo": {
+        "page": 1,
+        "pageBox": [
+          0,
+          0,
+          100,
+          100
+        ],
+        "rotate": 90,
+        "userUnit": 2,
+        "width": 100,
+        "height": 100
+      },
+      "glyphs": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "😀",
+          "quad": [
+            0,
+            0,
+            10,
+            0,
+            10,
+            10,
+            0,
+            10
+          ],
+          "baseline": [
+            0,
+            0,
+            10,
+            0
+          ],
+          "source": "native"
+        }
+      ],
+      "profileFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reason": null
+    }
   }
 ]

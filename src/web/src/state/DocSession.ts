@@ -5,7 +5,7 @@ import type { AppServices, DocumentState } from '../services/AppServices';
 
 export class DocSession {
   handle: DocHandle;
-  readonly store = createStore<DocumentState & {access:DocHandle['access'];page:number;scale:number;rotation:number;draft:string;reply:string;running:boolean;saveState:'saved'|'saving'|'error';error?:string}>(() => ({access:'readOnly',documentRevision:0,annotations:[],conversations:[],messages:[],page:1,scale:1.25,rotation:0,draft:'',reply:'',running:false,saveState:'saved'}));
+  readonly store = createStore<DocumentState & {access:DocHandle['access'];page:number;pageCount:number;anchorRatio:number;scale:number;rotation:number;fit:'manual'|'width'|'page';draft:string;reply:string;running:boolean;saveState:'saved'|'saving'|'error';error?:string}>(() => ({access:'readOnly',documentRevision:0,annotations:[],conversations:[],messages:[],page:1,pageCount:0,anchorRatio:0,scale:1,rotation:0,fit:'manual',draft:'',reply:'',running:false,saveState:'saved'}));
   private services: AppServices;
   private run?: AbortController;
   private queue: Promise<void> = Promise.resolve();

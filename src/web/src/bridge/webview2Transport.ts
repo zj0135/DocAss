@@ -2,6 +2,7 @@ import { ServiceError, validate } from '../contracts';
 import type { Event, Response } from '../contracts';
 
 export interface WebViewPort {
+  postMessageWithAdditionalObjects?(message:unknown,objects:File[]):void;
   postMessage(message: unknown): void;
   addEventListener(type: 'message', listener: (event: { data: unknown }) => void): void;
   removeEventListener(type: 'message', listener: (event: { data: unknown }) => void): void;

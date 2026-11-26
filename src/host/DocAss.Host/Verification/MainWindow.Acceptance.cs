@@ -51,7 +51,8 @@ public sealed partial class MainWindow
             for(var i=0;i<200;i++){if(await web.CoreWebView2.ExecuteScriptAsync("document.querySelector('footer')?.textContent.includes('桌面模式')") == "true")break;await Task.Delay(50);}
             if(await web.CoreWebView2.ExecuteScriptAsync("Boolean(document.querySelector('footer')?.textContent.includes('桌面模式'))")!="true")throw new Exception("Workspace did not bootstrap");
             if(acceptance.Scenario=="hmr") { await VerifyHmrAsync();return; }
-            NativeInput.GetCursorPos(out originalCursor);originalForeground=NativeInput.GetForegroundWindow();NativeInput.Activate(this);await Task.Delay(400);
+            if(acceptance.Scenario=="reading") { await VerifyReadingAsync();return; }
+            NativeInput.GetCursorPos(out originalCursor);originalForeground=NativeInput.GetForegroundWindow();Topmost=true;NativeInput.Activate(this);await Task.Delay(400);
             if(acceptance.Scenario is "closeButton" or "altF4")
             {
                 if(acceptance.Scenario=="closeButton") await ClickButton("关闭");else {await NativeInput.Click(web.PointToScreen(new Point(420,80)));await NativeInput.AltF4();}
@@ -84,7 +85,7 @@ public sealed partial class MainWindow
             acceptanceResults["monitorScenario"]="OS WM_DISPLAYCHANGE with window on removed virtual location; no physical cable unplug claimed";
             acceptanceResults["ok"]=true;await FinishAcceptanceAsync(acceptanceResults);
         }
-        catch(Exception ex){acceptanceResults["ok"]=false;acceptanceResults["error"]=ex.ToString();await FinishAcceptanceAsync(acceptanceResults);}
+        catch(Exception ex){acceptanceResults["ok"]=false;acceptanceResults["error"]=ex.ToString();if(acceptance.Scenario=="reading")acceptanceResults["pageErrors"]=await web.CoreWebView2.ExecuteScriptAsync("window.__readingErrors");await FinishAcceptanceAsync(acceptanceResults);}
     }
     private void Check(string name,bool pass){acceptanceResults[name]=pass;if(!pass)throw new Exception(name+" failed");}
     private async Task ClickButton(string title)
@@ -145,8 +146,9 @@ public sealed partial class MainWindow
             const observe=()=>{if(reply.textContent!==previous){previous=reply.textContent;frames.push({text:previous,time:performance.now()});}if(observing)requestAnimationFrame(observe);};requestAnimationFrame(observe);
             button('生成示例回复').click();await until(()=>reply.textContent.includes('第四段'));await pause(50);observing=false;
             check(frames.filter(f=>f.text&&!f.text.includes('第四段')).length>=2,'incremental painted UI');window.__streamFrames=frames;
-            button('生成示例回复').click();await until(()=>reply.textContent.includes('第一段'));const started=performance.now();button('停止示例回复').click();await until(()=>button('生成示例回复'));const cancelMs=performance.now()-started;check(cancelMs<100,'cancel feedback');window.__cancelUiMs=cancelMs;const text=reply.textContent;await pause(350);check(reply.textContent===text,'no post-cancel append');
+            await until(()=>button('生成示例回复'));button('生成示例回复').click();await until(()=>reply.textContent==='第一段'&&button('停止示例回复'));const started=performance.now();button('停止示例回复').click();await until(()=>button('生成示例回复'));const cancelMs=performance.now()-started;check(cancelMs<100,'cancel feedback');window.__cancelUiMs=cancelMs;const text=reply.textContent;await pause(350);check(reply.textContent===text,'no post-cancel append');
             """);
+        for(var i=0;i<20&&(loopback.CancelledRequests==0||loopback.ActiveRequests!=0);i++)await Task.Delay(50);
         Check("upstreamCancelled",loopback.CancelledRequests>0&&loopback.ActiveRequests==0);
         acceptanceResults["paintedStreamFrames"]=JsonDocument.Parse(await web.CoreWebView2.ExecuteScriptAsync("window.__streamFrames")).RootElement.Clone();
         acceptanceResults["cancelUiMs"]=JsonDocument.Parse(await web.CoreWebView2.ExecuteScriptAsync("window.__cancelUiMs")).RootElement.Clone();

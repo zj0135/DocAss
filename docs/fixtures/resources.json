@@ -47,5 +47,17 @@
         "prefixBytes":  4194304,
         "sha256":  "fd2f59f9412c9d6cb238dde9f507f7a15dbec8d141885679bcaff72abc4b5cba",
         "license":  "Dataset terms: acknowledge source and cite de Campos et al. (VISAPP 2009)"
+    },
+    {
+        "file":  "downloads/perf_codecs_jbig2.pdf",
+        "url":  "https://raw.githubusercontent.com/mozilla/pdf.js/0b093fb11270c29c1894902810cd9aef2e9a9f3c/test/pdfs/perf_codecs_jbig2.pdf",
+        "sha256":  "c7cdfb036282939f6a5461d67c34c895910856266c598f118cc41c9b7ca1d82e",
+        "license":  "Apache-2.0 (PDF.js generated Talos codec corpus)"
+    },
+    {
+        "file":  "downloads/perf_codecs_jpx.pdf",
+        "url":  "https://raw.githubusercontent.com/mozilla/pdf.js/0b093fb11270c29c1894902810cd9aef2e9a9f3c/test/pdfs/perf_codecs_jpx.pdf",
+        "sha256":  "0f8479d461d0d7e5fb3875f8336ecbbc995ec180bc60b07a7a8be757a9e22169",
+        "license":  "Apache-2.0 (PDF.js generated Talos codec corpus)"
     }
 ]

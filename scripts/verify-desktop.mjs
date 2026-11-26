@@ -33,7 +33,7 @@ async function host(scenario,{dev=false,env={},onReady}={}) {
 let vite;const stamp=path.join(root,'src/web/src/buildStamp.ts');const original=await readFile(stamp);
 const only=process.argv.find(a=>a.startsWith('--case='))?.slice(7);
 try {
-  for(const scenario of ['channel','native','closeButton','altF4','runtimeMissing','devUnavailable','hmr']) {
+  for(const scenario of ['channel','native','reading','closeButton','altF4','runtimeMissing','devUnavailable','hmr']) {
     if(only&&only!==scenario)continue;
     if(scenario==='runtimeMissing'){const empty=path.join(output,'missing-runtime');await mkdir(empty);await host(scenario,{env:{WEBVIEW2_BROWSER_EXECUTABLE_FOLDER:empty}});}
     else if(scenario==='devUnavailable')await host(scenario,{dev:true});

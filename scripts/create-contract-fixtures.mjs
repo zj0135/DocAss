@@ -16,8 +16,10 @@ const samples={
  Box:box, Quad:quad, Affine:[2,0,0,3,7,11], TextRange:{start:0,end:2},
 };
 samples.CommitCommand={schemaVersion:1,operationId:id,docId:id,expectedRevision:0,payloadHash:hash,command:samples.Command};
+samples.NativePage={docId:id,jobId:id,contentRevision:hash,pageGeneration:0,status:'ready',pageInfo:samples.PageInfo,glyphs:samples.PageText.glyphs,profileFingerprint:hash,reason:null};
 const fixtures=Object.entries(samples).map(([schema,value])=>({name:`valid-${schema}`,schema,valid:true,value}));
 function bad(schema,name,edit){const value=structuredClone(samples[schema]);edit(value);fixtures.push({name,schema,valid:false,value});}
 bad('Request','unknown-version',v=>v.v=2);bad('Request','unknown-field',v=>v.secret='x');bad('DocHandle','path-id',v=>v.docId='../private');bad('DocHandle','content-identity',v=>v.contentRevision='b'.repeat(64));bad('PageInfo','page-zero',v=>v.page=0);bad('PageInfo','page-limit',v=>v.page=1000001);bad('PageInfo','coordinate-overflow',v=>v.pageBox[2]=1e300);bad('Annotation','long-author',v=>v.author='a'.repeat(257));bad('Annotation','missing-anchor',v=>delete v.anchor);bad('PageText','utf16-surrogate-split',v=>v.spans[0].range.end=1);bad('PageText','utf16-out-of-bounds',v=>v.spans[0].range.end=3);bad('Provider','unsafe-url',v=>v.baseUrl='http://evil.example');bad('Provider','url-credentials',v=>v.baseUrl='https://user:pass@example.com');
 fixtures.push(...[{name:'crossed-quad',schema:'Quad',value:[0,0,10,10,10,0,0,10]},{name:'clockwise-quad',schema:'Quad',value:[0,0,0,10,10,10,10,0]},{name:'wrong-start',schema:'Quad',value:[10,0,10,10,0,10,0,0]},{name:'degenerate-box',schema:'Box',value:[0,0,0,10]},{name:'singular-affine',schema:'Affine',value:[1,1,1,1,0,0]}].map(f=>({...f,valid:false})));
+bad('NativePage','native-status-invalid',v=>v.status='verified');bad('NativePage','native-job-path',v=>v.jobId='../file');bad('NativePage','native-negative-generation',v=>v.pageGeneration=-1);
 writeFileSync('src/shared/contract-fixtures.json',JSON.stringify(fixtures,null,2)+'\n');

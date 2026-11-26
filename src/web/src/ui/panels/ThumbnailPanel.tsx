@@ -1,7 +1,10 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import type { PagedDocument } from '../../documents/types';
+import { Thumbnails } from '../../documents/Thumbnails';
 
 interface ThumbnailPanelProps {
+  document?:PagedDocument;
   pageCount: number;
   currentPage: number;
   onSelectPage: (page: number) => void;
@@ -13,6 +16,7 @@ export const ThumbnailPanel: React.FC<ThumbnailPanelProps> = ({
   currentPage,
   onSelectPage,
   onClose,
+  document,
 }) => {
   // Generate mock thumbnails up to pageCount (or up to 16 for preview)
   const displayPages = Array.from({ length: Math.min(pageCount, 16) }, (_, i) => i + 1);
@@ -33,7 +37,7 @@ export const ThumbnailPanel: React.FC<ThumbnailPanelProps> = ({
       </div>
 
       {/* Thumbnails Grid/List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      {document?<Thumbnails document={document} current={currentPage} onSelect={onSelectPage}/>:<div className="flex-1 overflow-y-auto p-3 space-y-3">
         {displayPages.map((page) => {
           const isSelected = page === currentPage;
 
@@ -85,7 +89,7 @@ export const ThumbnailPanel: React.FC<ThumbnailPanelProps> = ({
             </div>
           );
         })}
-      </div>
+      </div>}
     </aside>
   );
 };

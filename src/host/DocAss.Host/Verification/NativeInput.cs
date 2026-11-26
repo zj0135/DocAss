@@ -28,6 +28,15 @@ internal static class NativeInput
     { await Task.Run(()=>{if(twice)Thread.Sleep(600);SetCursorPos((int)point.X,(int)point.Y);MouseEvent(2);Thread.Sleep(35);MouseEvent(4);if(twice){Thread.Sleep(75);MouseEvent(2);Thread.Sleep(35);MouseEvent(4);}});await Task.Delay(250); }
     public static async Task Drag(System.Windows.Point from,int dx,int dy)
     { SetCursorPos((int)from.X,(int)from.Y);MouseEvent(2);await Task.Delay(100);for(var i=1;i<=8;i++){SetCursorPos((int)from.X+dx*i/8,(int)from.Y+dy*i/8);await Task.Delay(25);}MouseEvent(4);await Task.Delay(200); }
+    public static async Task TripleClick(System.Windows.Point point)
+    {await Task.Delay(600);SetCursorPos((int)point.X,(int)point.Y);for(var i=0;i<3;i++){MouseEvent(2);await Task.Delay(35);MouseEvent(4);await Task.Delay(75);}await Task.Delay(200);}
+    public static async Task DragAcrossLayout(System.Windows.Point from,Func<Task<System.Windows.Point>> target)
+    {
+        SetCursorPos((int)from.X,(int)from.Y);MouseEvent(2);
+        try {await Task.Delay(100);var to=await target();SetCursorPos((int)to.X,(int)to.Y);await Task.Delay(200);}
+        finally {MouseEvent(4);}
+        await Task.Delay(200);
+    }
     public static Task AltF4() => Task.Run(() =>
     {
         var keys=new[]{new Keyboard{Key=0x12},new Keyboard{Key=0x73},new Keyboard{Key=0x73,Flags=2},new Keyboard{Key=0x12,Flags=2}};

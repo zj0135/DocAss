@@ -5,18 +5,19 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {importManualOcr} from './manual-ocr.mjs';
-import {PDFDocument,PDFName,PDFNumber,PDFArray,PDFOperator,beginText,endText,setFontAndSize,moveText,degrees} from 'pdf-lib';
+import {PDFDocument,PDFName,PDFNumber,PDFArray,PDFString,PDFOperator,beginText,endText,setFontAndSize,moveText,degrees} from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 const root=path.dirname(fileURLToPath(import.meta.url)),out=path.join(root,'generated');await mkdir(out,{recursive:true});
 const fontBytes=await readFile(path.join(root,'fonts/NotoSansCJKsc-Regular.otf'));
 const sourceFont=fontkit.create(fontBytes),fontHash=createHash('sha256').update(fontBytes).digest('hex');
+async function generateNative(subset,rows,suffix){
 const doc=await PDFDocument.create();doc.registerFontkit(fontkit);doc.setCreationDate(new Date('2026-11-25T00:00:00Z'));doc.setModificationDate(new Date('2026-11-25T00:00:00Z'));doc.setProducer('DocAss deterministic fixtures v1');
-const font=await doc.embedFont(fontBytes,{subset:true}),truth=[],texts=[];
+const font=await doc.embedFont(fontBytes,{subset}),truth=[],texts=[];
 const cases=[['chinese','中文文档标注测试数据页面坐标验证'],['mixed','DocAss 中文 PDF 123 ABC 数据'],['tj','ABCDEF'],['rotate','页面旋转测试 ABC'],['crop','CropBox 偏移测试'],['userunit','UserUnit 坐标测试'],['unicode','ofﬁce é 😀'],['rtl','אבג العربية'],['vertical','竖排文字测试']];
 for(const [index,[name,sample]]of cases.entries()){
  const page=doc.addPage([595,842]);let pageText='';
- for(let row=0;row<12;row++){
-  let x=name==='vertical'?100+row*30:60,y=name==='vertical'?760:760-row*42;const fontSize=14;
+ for(let row=0;row<(index<6?rows:12);row++){
+  let x=name==='vertical'?100+row*30:60,y=name==='vertical'?760:760-row*(rows===12?42:32);const fontSize=14;
   for(const char of sample){
    const glyph=sourceFont.glyphForCodePoint(char.codePointAt(0)),bbox=glyph.bbox,scale=fontSize/sourceFont.unitsPerEm;
    page.drawText(char,{x,y,size:fontSize,font});
@@ -32,9 +33,16 @@ for(const [index,[name,sample]]of cases.entries()){
 const counter=doc.addPage([595,842]),items=PDFArray.withContext(doc.context);let x=50;const tj=[];
 for(const [i,char]of [...'ABCDEF'].entries()) {const advance=sourceFont.glyphForCodePoint(char.codePointAt(0)).advanceWidth/sourceFont.unitsPerEm*20;items.push(font.encodeText(char));tj.push({char,start:x,advance});x+=advance;const adjustment=i%2===0?-180:180;items.push(PDFNumber.of(adjustment));x-=adjustment*20/1000;}
 counter.pushOperators(beginText(),setFontAndSize(counter.node.newFontDictionary(font.name,font.ref),20),moveText(50,700),PDFOperator.of('TJ',[items]),endText());
-await writeFile(path.join(out,'native-matrix.pdf'),await doc.save({useObjectStreams:false}));
-await writeFile(path.join(out,'native-truth.json'),JSON.stringify({generator:'font design outlines + explicit placements, independent of PDF.js/PdfPig',fontHash,truth,texts},null,2));
-await writeFile(path.join(out,'tj-counterexample.json'),JSON.stringify({page:10,size:20,glyphs:tj},null,2));
+await writeFile(path.join(out,`native-${suffix}.pdf`),await doc.save({useObjectStreams:false}));
+await writeFile(path.join(out,`native-${suffix}-truth.json`),JSON.stringify({generator:'font design outlines + explicit placements, independent of PDF.js/PdfPig',fontHash,truth,texts},null,2));
+if(suffix==='matrix')await writeFile(path.join(out,'tj-counterexample.json'),JSON.stringify({page:10,size:20,glyphs:tj},null,2));
+return {truth,texts};
+}
+// Keep the original fontkit CFF subset as a negative fixture: its FDSelect mapping
+// reuses the last dictionary instead of the glyph's original dictionary.
+await generateNative(true,12,'legacy-cff');
+const {truth}=await generateNative(false,20,'matrix');
+await writeFile(path.join(out,'native-truth.json'),await readFile(path.join(out,'native-matrix-truth.json')));
 // Positive Unicode samples use fonts which actually contain the requested glyphs.
 const unicode=await PDFDocument.create();unicode.registerFontkit(fontkit);unicode.setCreationDate(new Date('2026-11-25T00:00:00Z'));unicode.setModificationDate(new Date('2026-11-25T00:00:00Z'));
 const unicodeTruth=[];
@@ -58,8 +66,22 @@ const png=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',he
 for(const pages of [300,500]){const performance=await PDFDocument.create();performance.setCreationDate(new Date('2026-11-25T00:00:00Z'));performance.setModificationDate(new Date('2026-11-25T00:00:00Z'));for(let i=0;i<pages;i++){const page=performance.addPage([595,842]);page.drawText(`DocAss performance fixture page ${i+1}`,{x:36,y:790,size:14});}await writeFile(path.join(out,`performance-${pages}.pdf`),await performance.save({useObjectStreams:false}));}
 for(const kind of ['scanned','mixed','blank']){const d=await PDFDocument.create();d.setCreationDate(new Date('2026-11-25T00:00:00Z'));d.setModificationDate(new Date('2026-11-25T00:00:00Z'));const p=d.addPage([595,842]);if(kind!=='blank'){const image=await d.embedPng(png);p.drawImage(image,{x:30,y:120,width:535,height:535});}if(kind==='mixed')p.drawText('Native header above scanned body',{x:30,y:790,size:14});await writeFile(path.join(out,kind+'.pdf'),await d.save({useObjectStreams:false}));}
 await writeFile(path.join(out,'broken.pdf'),'%PDF-1.7\nintentionally truncated\n');
+// Named and explicit destinations, varied page sizes, a visible static annotation,
+// and a JavaScript action which a canvas-only reader must never execute.
+const navigation=await PDFDocument.create();navigation.setCreationDate(new Date('2026-11-25T00:00:00Z'));navigation.setModificationDate(new Date('2026-11-25T00:00:00Z'));
+const navPages=[[595,842],[300,400],[842,595]].map((size,i)=>{const page=navigation.addPage(size);page.drawText(`Navigation page ${i+1}`,{x:30,y:size[1]-50,size:18});return page;});
+const context=navigation.context,outlineRef=context.nextRef(),firstRef=context.nextRef(),secondRef=context.nextRef();
+context.assign(outlineRef,context.obj({Type:'Outlines',First:firstRef,Last:secondRef,Count:2}));
+context.assign(firstRef,context.obj({Title:PDFString.of('Named chapter'),Parent:outlineRef,Dest:PDFString.of('chapter-two'),Next:secondRef}));
+context.assign(secondRef,context.obj({Title:PDFString.of('Final chapter'),Parent:outlineRef,Dest:[navPages[2].ref,'Fit'],Prev:firstRef}));
+navigation.catalog.set(PDFName.of('Outlines'),outlineRef);navigation.catalog.set(PDFName.of('Names'),context.obj({Dests:{Names:[PDFString.of('chapter-two'),[navPages[1].ref,'Fit']]}}));
+const appearance=context.register(context.flateStream('1 0 0 rg 0 0 100 40 re f',{Type:'XObject',Subtype:'Form',BBox:[0,0,100,40],Resources:{}}));
+navPages[0].node.set(PDFName.of('Annots'),context.obj([context.register(context.obj({Type:'Annot',Subtype:'Square',Rect:[30,650,130,690],F:4,AP:{N:appearance}}))]));
+navigation.catalog.set(PDFName.of('OpenAction'),context.obj({S:'JavaScript',JS:PDFString.of('globalThis.__pdfScriptExecuted=true;')}));
+await writeFile(path.join(out,'navigation.pdf'),await navigation.save({useObjectStreams:false}));
 const qpdf=path.join(root,'downloads/qpdf/qpdf-12.3.2-msvc64/bin/qpdf.exe');
 execFileSync(qpdf,['--static-id','--static-aes-iv','--encrypt','fixture-reader','fixture-owner','128','--use-aes=y','--',path.join(out,'mixed.pdf'),path.join(out,'password.pdf')],{windowsHide:true});
 const manualOcrGlyphs=await importManualOcr(root,out);
+for(const name of ['perf_codecs_jbig2.pdf','perf_codecs_jpx.pdf'])await writeFile(path.join(out,name),await readFile(path.join(root,'downloads',name)));
 const manifest=[];for(const file of (await readdir(out)).sort()){if(file==='manifest.json')continue;const bytes=await readFile(path.join(out,file));manifest.push({file,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')});}
-await writeFile(path.join(out,'manifest.json'),JSON.stringify({generatorVersion:2,fontHash,nonWhitespaceGlyphs:truth.length,missingGlyphs:truth.filter(g=>g.missingGlyph).length,ocrGlyphs:ocr.length,manualOcrGlyphs,files:manifest},null,2)+'\n');console.log(JSON.stringify({nonWhitespaceGlyphs:truth.length,missingGlyphs:truth.filter(g=>g.missingGlyph).length,ocrGlyphs:ocr.length,manualOcrGlyphs,files:manifest.length}));
+await writeFile(path.join(out,'manifest.json'),JSON.stringify({generatorVersion:3,fontHash,nonWhitespaceGlyphs:truth.length,missingGlyphs:truth.filter(g=>g.missingGlyph).length,ocrGlyphs:ocr.length,manualOcrGlyphs,files:manifest},null,2)+'\n');console.log(JSON.stringify({nonWhitespaceGlyphs:truth.length,missingGlyphs:truth.filter(g=>g.missingGlyph).length,ocrGlyphs:ocr.length,manualOcrGlyphs,files:manifest.length}));

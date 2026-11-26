@@ -30,3 +30,5 @@ export type Request = { v: 1; kind: "req"; id: string; method: string; params: R
 export type Response = { v: 1; kind: "res"; id: string; ok: true; result: unknown } | { v: 1; kind: "res"; id: string; ok: false; error: Error };
 export type Event = { v: 1; kind: "event"; topic: string; seq: number; docId?: string; jobId?: string; runId?: string; payload: unknown };
 export type Settings = { revision: number; author: string; chatWidth: number; sidePanel: "none" | "thumbnails" | "outline" | "annotations"; tool: "select" | "highlight" | "underline" | "note" | "freetext" | "ink" | "rect" | "arrow" | "regionAsk" | "eraser"; color: string; strokeWidth: number; opacity: number; window: { left: number; top: number; width: number; height: number; maximized: boolean } };
+export type NativePage = { docId: Id; jobId: Id; contentRevision: Hash; pageGeneration: number; status: "ready" | "unreliable" | "failed"; pageInfo: PageInfo; glyphs: (Glyph)[]; profileFingerprint: Hash; reason?: string | null; spaces?: (NativeSpace)[] };
+export type NativeSpace = { text: string; baseline: [number, number, number, number] };

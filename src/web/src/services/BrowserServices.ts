@@ -1,6 +1,7 @@
 import { ServiceError, payloadHash, validate } from '../contracts';
 import type { Command, CommitCommand, CommitResult, DocHandle, Settings, Provider } from '../contracts';
 import type { AppServices, Bootstrap, Capabilities, DocumentState } from './AppServices';
+import type { DocumentSource, RecentDocument } from '../documents/types';
 
 export const defaultSettings: Settings = { revision: 0, author: '浏览器用户', chatWidth: 440, sidePanel: 'none', tool: 'select', color: '#3B82F6', strokeWidth: 2, opacity: .5, window: { left: 80, top: 80, width: 1280, height: 800, maximized: false } };
 const unsupported = async (): Promise<never> => { throw new ServiceError('UNCONFIGURED', '此功能需要桌面服务'); };
@@ -21,10 +22,11 @@ export class BrowserServices implements AppServices {
   private database: Promise<IDBDatabase>;
   private handles = new Map<string, DocHandle>();
   private lifetime = new AbortController();
+  private sources = new Map<string,DocumentSource>();
   constructor(name = 'docass-v1') {
     this.database = new Promise((resolve, reject) => {
-      const open = indexedDB.open(name, 1);
-      open.onupgradeneeded = () => { for (const store of ['settings','documents','operations','providers']) open.result.createObjectStore(store); };
+      const open = indexedDB.open(name, 2);
+      open.onupgradeneeded = () => { for (const store of ['settings','documents','operations','providers','files','recent']) if(!open.result.objectStoreNames.contains(store))open.result.createObjectStore(store); };
       open.onsuccess = () => { open.result.onversionchange = () => open.result.close(); resolve(open.result); };
       open.onerror = () => reject(new ServiceError('STORAGE_FAILED', '无法打开浏览器存储'));
       open.onblocked = () => reject(new ServiceError('STORAGE_FAILED', '请关闭其他标签后重试'));
@@ -34,6 +36,28 @@ export class BrowserServices implements AppServices {
   private async read<T>(store: string, key: string): Promise<T | undefined> { const db = await this.database; return request(db.transaction(store).objectStore(store).get(key)); }
   async bootstrap(): Promise<Bootstrap> { return { version: '0.3.0', capabilities: this.capabilities, settings: await this.settings.get(), window: { maximized: false }, documents: [] }; }
   documents: AppServices['documents'] = {
+    open: async (file,signal)=>{
+      if(!file)return null;
+      if(!/\.(pdf|png|jpe?g|bmp)$/i.test(file.name))throw new ServiceError('UNSUPPORTED_FORMAT','支持 PDF、PNG、JPEG 和 BMP 文件');
+      if(file.size===0||file.size>1024**3)throw new ServiceError('FILE_TOO_LARGE','文件为空或超过 1 GiB 上限');
+      signal?.throwIfAborted();const bytes=await file.arrayBuffer();
+      const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
+      signal?.throwIfAborted();
+      let handle=[...this.handles.values()].find(h=>h.docHash===hash);
+      handle??=validate<DocHandle>('DocHandle',{docId:crypto.randomUUID(),docHash:hash,fileName:file.name,kind:/\.pdf$/i.test(file.name)?'pdf':'image',byteLength:file.size,access:'edit',contentRevision:hash});
+      const db=await this.database,tx=db.transaction(['documents','files','recent'],'readwrite'),completion=done(tx),docs=tx.objectStore('documents');
+      if(!await request(docs.get(hash)))docs.put({handle,state:{documentRevision:0,annotations:[],conversations:[],messages:[]},effects:{}} satisfies SavedDoc,hash);
+      tx.objectStore('files').put(file,hash);tx.objectStore('recent').put({docHash:hash,fileName:file.name,openedAt:new Date().toISOString()} satisfies RecentDocument,hash);
+      await completion;signal?.throwIfAborted();this.handles.set(handle.docId,handle);if(!this.sources.has(handle.docId))this.sources.set(handle.docId,{kind:handle.kind,blob:file});
+      return {status:'ready',openId:handle.docId,fileName:handle.fileName,handle,pageCount:0};
+    },
+    unlock: unsupported,
+    cancelOpen: async()=>{},
+    recent: async()=>{const db=await this.database;return (await request<RecentDocument[]>(db.transaction('recent').objectStore('recent').getAll())).sort((a,b)=>b.openedAt.localeCompare(a.openedAt)).slice(0,20);},
+    openRecent: async(hash,signal)=>{validate('Hash',hash);const blob=await this.read<Blob>('files',hash),recent=await this.read<RecentDocument>('recent',hash);if(!blob||!recent)throw new ServiceError('FILE_MISSING','浏览器中的文件已清理，请重新选择');return (await this.documents.open(new File([blob],recent.fileName),signal))!;},
+    source: async id=>{this.resolve(id);const source=this.sources.get(id);if(!source)throw new ServiceError('DOCUMENT_CLOSED','文件不可用');return source;},
+    drop: ()=>{},
+    subscribe: ()=>()=>{},
     openFixture: async (name, signal) => {
       await abortableDelay(40, signal);
       const hash = (name === 'report' ? 'a' : 'b').repeat(64);
@@ -44,10 +68,11 @@ export class BrowserServices implements AppServices {
       if (!current) store.put({ handle, state: { documentRevision: 0, annotations: [], conversations: [], messages: [] }, effects: {} } satisfies SavedDoc, hash);
       await completion; if (signal?.aborted) throw new ServiceError('CANCELLED', '已取消打开'); this.handles.set(handle.docId, handle); return handle;
     },
-    close: async id => { this.resolve(id); this.handles.delete(id); },
+    close: async id => { this.resolve(id); this.handles.delete(id); this.sources.delete(id); },
     reacquire: async id => ({ handle: this.resolve(id), documentRevision: (await this.persistence.read(id)).documentRevision }),
   };
   text = { getPage: unsupported };
+  clipboard = {write:async(_docId:string,text:string)=>navigator.clipboard.writeText(text)};
   ocr = { start: unsupported };
   persistence: AppServices['persistence'] = {
     commit: async (payload: CommitCommand) => {

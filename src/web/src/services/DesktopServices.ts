@@ -2,20 +2,38 @@ import { Webview2Transport } from '../bridge/webview2Transport';
 import { ServiceError, validate } from '../contracts';
 import type { Settings, DocHandle, CommitResult } from '../contracts';
 import type { AppServices, Bootstrap, Capabilities, DocumentState } from './AppServices';
+import type { OpenResult, NativePage } from '../documents/types';
+import { buildPageText } from '../text/model';
 
 export class DesktopServices implements AppServices {
-  readonly capabilities: Capabilities = { desktop: true, window: true, persistentStorage: true, credentials: true, nativeText: false, ocr: false, llm: false };
+  readonly capabilities: Capabilities = { desktop: true, window: true, persistentStorage: true, credentials: true, nativeText: true, ocr: false, llm: false };
   private transport: Webview2Transport;
   private local?: Bootstrap['loopback'];
   constructor(transport: Webview2Transport) { this.transport = transport; }
   async bootstrap() { const result = await this.transport.request<Bootstrap>('app.bootstrap'); validate('Settings', result.settings); this.local = result.loopback; return result; }
   documents: AppServices['documents'] = {
+    open: (_file,signal) => this.transport.request('doc.open',{},signal,120000),
+    unlock: (openId,password,signal)=>this.transport.request('doc.unlock',{openId,password},signal,120000),
+    cancelOpen: openId=>this.transport.request('doc.cancelOpen',{openId}),
+    recent: ()=>this.transport.request('doc.recent'),
+    openRecent: (docHash,signal)=>this.transport.request('doc.openRecent',{docHash},signal,120000),
+    source: async docId=>{const info=await this.transport.request<OpenResult>('doc.info',{docId});const {password}=await this.transport.request<{password?:string}>('doc.password',{docId});return {kind:info.handle!.kind,url:`/_host/doc/${docId}/${info.image?'image':'bytes'}`,image:info.image,password};},
+    drop: files=>window.chrome?.webview?.postMessageWithAdditionalObjects?.({type:'docass.files'},files),
+    subscribe: (onOpen,onError)=>this.transport.subscribe(event=>{if(event.topic==='doc.opened')onOpen(event.payload as OpenResult);if(event.topic==='doc.openFailed')onError((event.payload as {message:string}).message);}),
     openFixture: async name => validate<DocHandle>('DocHandle', await this.transport.request('doc.openFixture', {name})),
     close: docId => this.transport.request('doc.close', { docId }),
     reacquire: docId => this.transport.request<{handle:DocHandle;documentRevision:number}>('doc.reacquire', { docId }),
   };
-  text: AppServices['text'] = { getPage: async () => { throw new ServiceError('UNCONFIGURED', '文字服务尚未就绪'); } };
+  text: AppServices['text'] = { getPage: async (docId,page,signal) => {
+    const jobId=crypto.randomUUID();validate('Id',docId);
+    const cancel=()=>{void this.transport.request('text.cancel',{docId,jobId}).catch(()=>{});};signal?.addEventListener('abort',cancel,{once:true});
+    try {const response=await fetch(`/_host/doc/${docId}/text/${page}/${jobId}`,{signal});const result=await response.json();if(!response.ok)throw new ServiceError(result.code??'TEXT_UNRELIABLE',result.message??'文字提取失败');const raw=result as NativePage;if(raw.docId!==docId||raw.jobId!==jobId||raw.pageInfo.page!==page)throw new Error('文字任务版本不匹配');return await buildPageText(raw);}
+    finally {signal?.removeEventListener('abort',cancel);}
+  } };
   ocr: AppServices['ocr'] = { start: async () => { throw new ServiceError('UNCONFIGURED', '识别服务尚未就绪'); } };
+  clipboard: AppServices['clipboard'] = {write:async(docId,text)=>{
+    validate('Id',docId);const response=await fetch(`/_host/doc/${docId}/clipboard`,{method:'POST',headers:{'Content-Type':'text/plain'},body:text});if(!response.ok)throw new ServiceError('CLIPBOARD_FAILED','无法写入剪贴板，请重试');
+  }};
   persistence: AppServices['persistence'] = {
     commit: async command => validate<CommitResult>('CommitResult', await this.transport.request('store.commit', validate('CommitCommand', command))),
     getOperation: (docId, operationId) => this.transport.request('store.getOperation', {docId,operationId}),
